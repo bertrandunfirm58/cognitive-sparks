@@ -1,0 +1,92 @@
+Claude Code Agent Harness Architecture: Complete Technical Overview
+
+Core Architecture Layers
+
+The Claude Code harness operates through three primary layers:
+
+1. Orchestration Loop - Manages all LLM API interactions including prompt construction, streaming, token counting, cost tracking, and retry logic through QueryEngine.ts (46,000 lines).
+
+2. Permission-Gated Tool System - Approximately 40 discrete capabilities with independent permission controls separate from model reasoning. The base tool definition layer spans approximately 29,000 lines, encompassing schema validation, permission enforcement, and error handling.
+
+3. Multi-Layer Memory Architecture - Three-tier system treating memory as hints rather than ground truth.
+
+Context Management Strategy
+
+The harness implements five distinct strategies for handling context pressure during extended sessions:
+
+- Time-based clearing of aged tool results
+- Conversation summarization
+- Session memory extraction
+- Full history summarization
+- Oldest-message truncation
+
+Having five fallback strategies for context overflow isn't over-engineering if your sessions run longer than 20 minutes. Additionally, three compression strategies exist: MicroCompact (local editing, zero API calls), AutoCompact (triggered near context limits), and Full Compact (complete compression with file re-injection).
+
+Subagent Execution Models
+
+Three distinct coordination approaches exist for parallel work:
+
+Fork Model: Byte-identical copy of parent context, hits prompt cache. Maximum cache reuse for parallel work. Process-level isolation.
+
+Teammate Model: Separate pane in tmux/iTerm, communicates via file-based mailbox. Session-level isolation for loose coordination.
+
+Worktree Model: Own git worktree, isolated branch per agent. Filesystem-level isolation for exploratory or risky work.
+
+The key design principle: subagents must never corrupt the parent agent's state. Isolation is paramount.
+
+Permission Architecture
+
+The system separates permission enforcement from model reasoning through staged verification:
+
+1. Trust establishment at project load
+2. Permission checks before tool execution
+3. Explicit user confirmation for high-risk operations
+
+A separate LLM classifier call specifically evaluates proposed actions before execution. This "Permission Explainer" replaces brittle static allowlists with context-aware adaptive security. The bash security module contains 23 security checks gating every shell command. All tool actions receive LOW / MEDIUM / HIGH risk classifications.
+
+Memory System Design — "Memory That Distrusts Itself"
+
+Three-layer organization:
+
+Layer 1 (MEMORY.md): Lightweight index with short pointers (~150 chars per line), always loaded into context.
+
+Layer 2 (Topic files): Detailed notes on specific topics, loaded on-demand when relevant.
+
+Layer 3 (Raw transcripts): Accessed via grep/search only, never loaded into active context.
+
+Agents receive explicit instructions to treat memory as hints and verify against actual codebase before making claims. This "self-distrusting memory" philosophy prevents stale information from becoming false assumptions.
+
+KAIROS Background Daemon
+
+Referenced over 150 times in the codebase but feature-flagged out of public releases. KAIROS represents a fundamental shift: from reactive tool to proactive autonomous daemon.
+
+The autoDream process runs during idle periods with a 3-gate trigger:
+1. 24 hours since last dream
+2. 5+ sessions completed since last consolidation
+3. Consolidation lock acquired
+
+Four-stage process:
+1. Orient: Read directory structure and MEMORY.md
+2. Gather Signal: Collect daily logs, changed memories, transcripts (priority order)
+3. Consolidate: Update memory files, convert relative dates to absolute, remove logical contradictions
+4. Prune & Index: Keep MEMORY.md under 200 lines, remove stale pointers
+
+Dream subagents have read-only bash access — they can observe but never modify the project.
+
+Error Recovery
+
+Four-tier recovery hierarchy:
+Level 1: Retry with adjusted approach
+Level 2: Rollback to git checkpoint
+Level 3: Delegate task decomposition to subagent
+Level 4: Escalate to user with clear summary
+
+Capping retry attempts at 3 prevented approximately 250,000 unnecessary API calls per day. "The best engineering is knowing when to stop trying."
+
+Tool System
+
+40+ modular tools registered through getAllBaseTools() with feature gate + user type filtering. Tool schemas cached as JSON for prompt efficiency. The dispatch loop: stream response → detect tool_use → execute with permissions/hooks → append results → continue.
+
+Key Insight
+
+"The harness is what makes Claude Code Claude Code — not just the underlying model." At least 40-60% of Claude Code's capability comes from the orchestration, permission system, failure recovery, memory architecture, and engagement design that wraps the LLM — not from the model itself.

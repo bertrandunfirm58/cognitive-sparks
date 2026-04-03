@@ -1,0 +1,91 @@
+Diving Into Claude Code's Source Code: What We Found
+
+The Incident
+
+On March 31, 2026, Anthropic inadvertently included a .map sourcemap file in a Claude Code npm package update. The 600,000 lines of exposed code were quickly mirrored, analyzed, ported to other languages, and distributed across decentralized servers within minutes.
+
+KAIROS: The Proactive Agent
+
+The codebase revealed a fully-built autonomous agent mode operating behind feature flags labeled PROACTIVE and KAIROS. Unlike current reactive AI tools that wait for user input, KAIROS operates continuously, receiving heartbeat prompts asking "anything worth doing right now?" at regular intervals.
+
+Exclusive tools unavailable in standard mode:
+- Push notifications reaching users when terminals are closed
+- File delivery for sending created content autonomously
+- GitHub PR subscriptions enabling automated reactions to code changes
+
+A 15-second blocking budget per decision cycle prevents resource monopolization. The system survives notebook restarts through a persistence model and maintains append-only audit logging.
+
+Memory Architecture: Three Layers of Distrust
+
+Layer 1 (Index, always loaded): ~150 character pointers in MEMORY.md
+Layer 2 (Topic files, demand-loaded): actual knowledge content
+Layer 3 (Transcripts, grep-only): raw history, never loaded into context
+
+The system treats context windows as scarce resources, avoiding the common anti-pattern of loading all historical data per turn. Memory is verified before use, preventing hints from becoming false assumptions.
+
+The autoDream consolidation process reorganizes memory during idle periods:
+- Orient: scan directory structure
+- Gather: collect signals from logs, changes, transcripts
+- Consolidate: update, deduplicate, resolve contradictions
+- Prune: maintain index under 200 lines
+
+Anti-Distillation Mechanisms
+
+Two defensive layers protect against model distillation:
+
+Fake Tools Injection: Requests include anti_distillation flags injecting decoy tool definitions into system prompts, poisoning training data for competitors.
+
+Connector Text Layer: Server-side buffering returns only cryptographically-signed summaries to API traffic recorders, preventing full reasoning chain extraction.
+
+Prompt Caching Architecture
+
+SYSTEM_PROMPT_DYNAMIC_BOUNDARY splits instructions into stable and dynamic sections. Static content remains cached across sessions, dramatically reducing token costs. DANGEROUS_uncachedSystemPromptSection explicitly communicates cache-breaking consequences to engineers making changes.
+
+DRM Implementation
+
+API requests contain placeholder values that Bun's native HTTP stack (written in Zig) overwrites with computed hashes before transmission. This cryptographically verifies requests originate from genuine Claude Code binaries. Implementing this below the JavaScript layer prevents runtime patching.
+
+The Harness Infrastructure
+
+The engineering harness includes:
+
+- Live repository context loading per turn (git branches, recent commits, CLAUDE.md re-read each query)
+- Dedicated Grep and Glob tools replacing shell commands for structured results
+- Language Server Protocol access for call hierarchies and symbol definitions
+- Five context compaction strategies
+- 25+ event hook system for behavior interception
+- Three subagent models (fork, teammate, worktree) with inherited context optimization
+
+Forked subagents inherit parent context as byte-identical copies, enabling five parallel agents at minimal additional token cost through prompt cache reuse.
+
+Error Recovery Hierarchy
+
+Level 1: Retry with adjusted approach
+Level 2: Git checkpoint rollback
+Level 3: Task decomposition delegation to subagent
+Level 4: User escalation with clear summary
+
+Setting retry cap at 3 prevented ~250,000 unnecessary API calls daily.
+
+Model Codenames
+
+Capybara (v8, also "Mythos"): 1M context, fast mode
+Numbat: Upcoming model
+Fennec: Speculated Opus 4.6
+Tengu: Referenced in undercover mode
+
+An undercover mode (90 lines) operates as a one-way door preventing external builds from referencing internal codenames, Slack channels, or identifying as Claude Code.
+
+Design Patterns Worth Adopting
+
+Magic Docs Pattern: Dedicated subagents automatically update documentation during idle periods. Tool access restricts agents to single files, preventing scope drift.
+
+Permission Classification via Side-Query: Separate model queries evaluate command safety based on context rather than static allowlists. The "critic pattern" provides contextual security.
+
+Agent-Oriented Comments: Unlike traditional code optimized for human brevity, extensive comments including decision rationale aid AI agents working within codebases.
+
+The Key Takeaway
+
+The modular harness design suggests that alternative models (DeepSeek, Gemini) could achieve enhanced coding capabilities within the same infrastructure. The harness, not the model, is the differentiator. 40-60% of Claude Code's capability comes from orchestration, not intelligence.
+
+This validates the emerging field of "harness engineering" — the discipline of building the structures around AI models that make them actually useful in production environments. The model provides raw capability; the harness provides reliability, safety, context management, and user experience.

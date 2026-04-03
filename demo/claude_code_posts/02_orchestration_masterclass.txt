@@ -1,0 +1,68 @@
+The Claude Code Leak: A Masterclass in AI Agent Orchestration
+
+Background
+
+On March 31, 2026, Anthropic accidentally leaked Claude Code's entire source — 512,000 lines of TypeScript across 1,900 files — through a missing .npmignore entry in an npm package update. The source maps referenced a Cloudflare R2 bucket containing the full archive. Within hours, the codebase was mirrored across GitHub and analyzed by thousands of developers.
+
+Context Entropy: The Hardest Problem
+
+The most sophisticated part of the leak wasn't a single feature — it was how Anthropic solved "context entropy," the gradual degradation of useful information as conversations grow longer.
+
+Their four-stage context management pipeline paired with an auto-compaction system intelligently compresses context while preserving critical information and discarding noise. Five distinct strategies work as fallback layers:
+
+1. Time-based clearing of old tool results
+2. Summarization of conversation history
+3. Extraction of key facts into separate storage
+4. Full history compression
+5. Truncation of oldest messages
+
+This isn't just garbage collection — it's a carefully designed information preservation system. The system tracks 14 distinct cache break vectors (conditions that invalidate cached context), showing the level of engineering invested in this problem.
+
+The prompt system uses SYSTEM_PROMPT_DYNAMIC_BOUNDARY to split instructions into static (cached across sessions) and dynamic (regenerated each turn) sections. This dramatically reduces token costs at scale.
+
+Tool Orchestration: Security as Architecture
+
+The leaked codebase contained complete libraries of slash commands and built-in tools. The bash execution tool alone featured approximately 2,500 lines of security validation — a permission system, a sandboxing approach, and a validation pipeline all in one.
+
+Every tool action receives a risk classification (LOW/MEDIUM/HIGH). Rather than maintaining brittle allowlists, a separate model query evaluates each command's safety based on context, working directory, and user intent. This "critic pattern" costs minimal tokens versus the risk of false positives.
+
+Protected paths (.gitconfig, .bashrc, .zshrc) are automatically guarded. The system defends against URL encoding traversal, Unicode normalization attacks, backslash injection, and case manipulation.
+
+Multi-Agent Coordination: Isolation is Everything
+
+The architecture includes a forked sub-agent model where background tasks run in isolated processes, preventing the main agent's reasoning from being corrupted by its own maintenance routines.
+
+Three models of coordination:
+- Fork: Clone parent context, maximize cache hits, process isolation
+- Teammate: Separate terminal pane, file-based mailbox communication
+- Worktree: Isolated git branch per agent, filesystem-level separation
+
+The Coordinator Mode (CLAUDE_CODE_COORDINATOR_MODE=1) implements a four-phase pattern:
+1. Research (parallel workers gather information)
+2. Synthesis (coordinator combines findings)
+3. Implementation (workers execute plan)
+4. Verification (workers validate results)
+
+Workers communicate via XML task-notification messages and share persistent knowledge through a scratch directory.
+
+KAIROS and autoDream: The Future of AI Agents
+
+The autonomous daemon called autoDream performs a memory consolidation routine that merges scattered observations, removes logical contradictions, and converts vague insights into concrete, actionable facts.
+
+This is not a simple background task. It's a persistent cognitive process that:
+- Runs during idle periods with strict trigger conditions
+- Has read-only access to prevent project corruption
+- Consolidates learning across multiple sessions
+- Maintains a pruned, indexed knowledge base
+
+44 hidden feature flags revealed unshipped capabilities including: background agents, orchestrated worker swarms, cron scheduling, voice command modes, and browser control via Playwright.
+
+ULTRAPLAN offloads complex planning to remote cloud containers, giving Opus models 30 minutes of uninterrupted thinking time. Results are "teleported" back to the local terminal.
+
+The Real Lesson
+
+The model is not the product. The harness is the product.
+
+Claude Code's competitive advantage isn't Claude (the model) — it's the 512,000 lines of orchestration, context management, permission enforcement, memory architecture, and multi-agent coordination that make the model useful.
+
+This has implications for the entire industry: the next wave of AI tool competition will be fought on harness engineering, not model capability. The model is the engine; the harness is the car. Nobody buys an engine.
