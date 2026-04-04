@@ -163,6 +163,8 @@ def run_autonomic(
     ticks = 0  # Safety counter for total circuit updates
     MAX_TICKS = MAX_FIRINGS * 20  # Prevent infinite spinning
     firing_log: list[str] = []
+    firing_counts: dict[str, int] = {}  # Per-tool fire count
+    MAX_PER_TOOL = 3  # No tool fires more than 3 times per cascade
     consolidation_done = False
 
     while firings < MAX_FIRINGS and ticks < MAX_TICKS:
@@ -185,10 +187,11 @@ def run_autonomic(
 
         # 4. Find the tool with highest activation above threshold
         activations = circuit.get_tool_activations()
-        # Filter to tools we actually have
+        # Filter to tools we have + not over per-tool limit
         candidates = {
             name: rate for name, rate in activations.items()
             if name in tools and rate >= FIRE_THRESHOLD
+            and firing_counts.get(name, 0) < MAX_PER_TOOL
         }
 
         if not candidates:
@@ -198,6 +201,7 @@ def run_autonomic(
                 console.print(f"   [dim]😴 No tool above threshold → consolidation[/]")
                 _do_consolidation(state, circuit)
                 consolidation_done = True
+                firing_counts = {}  # Reset per-tool limits after sleep
                 continue
             else:
                 console.print(f"   [dim]⚡ Cascade exhausted ({firings} firings)[/]")
@@ -207,14 +211,17 @@ def run_autonomic(
         winner = max(candidates, key=candidates.get)
         activation = candidates[winner]
 
-        # 5.5 Prevent same tool firing consecutively (refractory enforcement)
-        if firing_log and firing_log[-1] == winner:
-            circuit.populations[winner].refractory = 1.5
-            # Try second-best candidate instead
+        # 5.5 Prevent repetitive firing (same tool or 2-tool oscillation)
+        if len(firing_log) >= 2 and winner in firing_log[-2:]:
+            circuit.populations[winner].refractory = 2.0
             del candidates[winner]
             if candidates:
                 winner = max(candidates, key=candidates.get)
                 activation = candidates[winner]
+                # Check this one too
+                if len(firing_log) >= 2 and winner in firing_log[-2:]:
+                    ticks += 1
+                    continue
             else:
                 ticks += 1
                 continue
@@ -297,6 +304,7 @@ def run_autonomic(
             )
 
         firing_log.append(winner)
+        firing_counts[winner] = firing_counts.get(winner, 0) + 1
 
         # 10. Update nervous system signals (for convergence detection etc.)
         state.signals = sense(state)
