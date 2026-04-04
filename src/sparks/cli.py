@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import typer
+from typing import Optional
 from rich.console import Console
 
 app = typer.Typer(
@@ -22,10 +23,16 @@ def run(
     depth: str = typer.Option("standard", "--depth", help="quick / standard / deep"),
     output: str = typer.Option("", "--output", "-o", help="Output file path (default: stdout + ./output/)"),
     no_nervous: bool = typer.Option(False, "--no-nervous", help="Ablation: disable biological nervous system"),
+    seed: Optional[int] = typer.Option(None, "--seed", help="Random seed for reproducibility"),
 ):
     """Analyze data using 13 cognitive thinking tools."""
     from sparks.engine import run as engine_run
     from sparks.output import format_output
+
+    if seed is not None:
+        from sparks.research import set_seed
+        set_seed(seed)
+        console.print(f"[dim]Seed: {seed}[/]")
 
     if depth not in ("quick", "standard", "deep"):
         console.print(f"[red]Invalid depth: {depth}. Use quick/standard/deep.[/]")
@@ -120,6 +127,64 @@ def loop(
         predict_input=predict,
         outcomes=outcomes,
     )
+
+
+@app.command()
+def bench(
+    goal: str = typer.Option(..., "--goal", "-g", help="What to find in the data"),
+    data: str = typer.Option(..., "--data", "-d", help="Path to data directory"),
+    runs: int = typer.Option(5, "--runs", "-n", help="Number of runs"),
+    depth: str = typer.Option("standard", "--depth", help="quick/standard/deep"),
+    output: str = typer.Option("", "--output", "-o", help="Output path for results"),
+):
+    """Benchmark: run N times, compute reproducibility statistics."""
+    from sparks.research import benchmark, format_benchmark
+    import json
+
+    console.print(f"\n[bold cyan]⚡ Sparks[/] — Benchmark ({runs} runs)")
+    stats = benchmark(goal=goal, data_path=data, n_runs=runs, depth=depth)
+
+    md = format_benchmark(stats)
+    console.print(md)
+
+    out_path = output or "output/benchmark.json"
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    Path(out_path).write_text(json.dumps(stats, indent=2, ensure_ascii=False, default=str))
+    console.print(f"\n[bold green]Saved to {out_path}[/]")
+
+
+@app.command()
+def export(
+    output_md: str = typer.Option(..., "--input", "-i", help="Path to Sparks output .md"),
+    fmt: str = typer.Option("latex", "--format", "-f", help="latex / notebook"),
+    out: str = typer.Option("", "--output", "-o", help="Output file path"),
+):
+    """Export results as LaTeX table or Jupyter notebook."""
+    # Note: for full evidence chains, we need the state (not just output.md)
+    # This exports from the output.md with limited evidence
+    from sparks.loop import PrincipleStore
+
+    store = PrincipleStore("export_temp")
+    n = store.load_from_output(output_md)
+
+    if fmt == "latex":
+        from sparks.state import SynthesisOutput, Principle
+        result = SynthesisOutput(
+            principles=[Principle(id=f"p{i}", statement=p["statement"],
+                                  confidence=p["confidence"])
+                        for i, p in enumerate(store.principles)],
+        )
+        from sparks.research import to_latex_table
+        latex = to_latex_table(result)
+        out_path = out or "output/principles.tex"
+        Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(out_path).write_text(latex)
+        console.print(f"[bold green]LaTeX saved to {out_path}[/]")
+        console.print(latex)
+    elif fmt == "notebook":
+        console.print("[yellow]Notebook export requires full state (run with --export-notebook flag)[/]")
+    else:
+        console.print(f"[red]Unknown format: {fmt}. Use latex or notebook.[/]")
 
 
 @app.command()

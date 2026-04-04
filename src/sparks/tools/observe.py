@@ -92,12 +92,16 @@ No threshold filters. Everything matters. The mundane can be significant."""
             )
 
             for obs_data in result.observations:
+                content = obs_data.get("content", "")
+                # Provenance: find source file:line for this observation
+                source_refs = data.find_source(content[:80]) if hasattr(data, 'find_source') else []
                 obs = Observation(
                     id=f"obs_{uuid.uuid4().hex[:8]}",
                     channel=obs_data.get("channel", "general"),
-                    content=obs_data.get("content", ""),
+                    content=content,
                     lens_used=state.lens.domain,
                     confidence=obs_data.get("confidence", 0.5),
+                    source_refs=source_refs,
                 )
                 state.observations.append(obs)
                 self.emit("observation_added", obs.id, state.round)

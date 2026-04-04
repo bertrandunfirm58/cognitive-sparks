@@ -17,18 +17,38 @@ class DataStore:
 
     def _load(self):
         if self.path.is_file():
-            self.items = [{"file": str(self.path), "content": self.path.read_text(errors="replace")}]
+            content = self.path.read_text(errors="replace")
+            self.items = [{"file": str(self.path), "content": content, "line_count": content.count("\n") + 1}]
         elif self.path.is_dir():
             for f in sorted(self.path.iterdir()):
                 if f.is_file() and f.suffix in (".txt", ".md", ".json", ".csv", ".py", ".ts", ".js"):
                     try:
                         content = f.read_text(errors="replace")
                         if content.strip():
-                            self.items.append({"file": f.name, "content": content})
+                            self.items.append({"file": f.name, "content": content, "line_count": content.count("\n") + 1})
                     except Exception:
                         continue
         if not self.items:
             raise ValueError(f"No readable data found at {self.path}")
+
+        # Build line index for provenance tracking
+        self._line_index = {}
+        for item in self.items:
+            lines = item["content"].split("\n")
+            for i, line in enumerate(lines, 1):
+                if line.strip():
+                    self._line_index[f"{item['file']}:{i}"] = line.strip()
+
+    def find_source(self, text_fragment: str, max_results: int = 3) -> list[str]:
+        """Find source file:line for a text fragment. For evidence chains."""
+        results = []
+        fragment_lower = text_fragment.lower()[:80]
+        for ref, line in self._line_index.items():
+            if fragment_lower in line.lower():
+                results.append(ref)
+                if len(results) >= max_results:
+                    break
+        return results
 
     @property
     def total_items(self) -> int:

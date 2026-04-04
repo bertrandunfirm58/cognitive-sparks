@@ -62,6 +62,7 @@ class Observation(BaseModel):
     lens_used: str = ""
     evidence: list[Evidence] = []
     confidence: float = 0.5
+    source_refs: list[str] = []  # ["file.txt:42", "file.txt:103"] for provenance
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
