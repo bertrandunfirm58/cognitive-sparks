@@ -55,6 +55,7 @@ from typing import Optional
 
 from rich.console import Console
 
+from sparks.checkpoint import Checkpoint
 from sparks.circuit import NeuralCircuit
 from sparks.cost import CostTracker, DEPTH_BUDGETS, get_active_tools
 from sparks.data import DataStore
@@ -152,6 +153,10 @@ def run_autonomic(
     #  AUTONOMIC CASCADE — the core loop
     # ════════════════════════════════════════════
 
+    # ── Checkpoint ──
+    ckpt = Checkpoint()
+    console.print(f"   [dim]Checkpoint: {ckpt.run_id}[/]")
+
     console.print(f"\n[bold]⚡ Autonomic cascade starting[/]")
     output = SynthesisOutput()
     firings = 0
@@ -214,9 +219,15 @@ def run_autonomic(
         firings += 1
         mode = circuit.get_mode()
         mode_icon = {"sympathetic": "🔴", "parasympathetic": "🔵", "balanced": "⚪"}.get(mode, "⚪")
+
+        # Show what's happening BEFORE the LLM call (so user isn't staring at blank screen)
+        state_summary = (
+            f"obs={len(state.observations)} pat={len(state.patterns)} "
+            f"prin={len(state.principles)} ana={len(state.analogies)}"
+        )
         console.print(
-            f"   {mode_icon} [{firings:2d}] {winner} "
-            f"(activation={activation:.2f}, mode={mode})"
+            f"   {mode_icon} [{firings:2d}] [bold]{winner}[/] "
+            f"(act={activation:.2f}, {mode}) [{state_summary}]"
         )
 
         # Track state before execution (for Hebbian learning)
@@ -256,6 +267,9 @@ def run_autonomic(
             cost = tracker.breakdown.get(winner, 0)
             console.print(f"         → {'✓ new output' if had_new else '· no change'} (${cost:.3f})")
 
+            # Save checkpoint after each successful firing
+            ckpt.save(state, winner, tracker.total_cost)
+
         except Exception as e:
             console.print(f"         → [red]✗ {e}[/]")
             circuit.record_tool_outcome(winner, success=False)
@@ -285,6 +299,7 @@ def run_autonomic(
     # Save everything
     memory.end_session(state, output)
     circuit.save()
+    ckpt.cleanup()  # Success — remove checkpoint files
 
     # ── Report ──
     console.print(f"\n[bold]═══ Cascade Complete ═══[/]")

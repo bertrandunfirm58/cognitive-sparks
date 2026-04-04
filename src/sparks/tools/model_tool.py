@@ -42,12 +42,19 @@ class ModelTool(BaseTool):
             f"- {p.statement}" for p in state.principles
         )
 
-        # Sample some raw data to test against
+        # Use observations as test data (already processed, no raw data re-read needed)
         sample_text = ""
-        if data:
+        if state.observations:
+            import random
+            sample_obs = random.sample(state.observations, min(15, len(state.observations)))
+            sample_text = "\n".join(
+                f"[{o.channel}] {o.content}" for o in sample_obs
+            )
+        elif data:
+            # Fallback to raw data only if no observations
             sample = data.sample(ratio=0.2, min_n=2, max_n=5)
             sample_text = "\n\n".join(
-                f"[{s['file']}]: {s['content'][:8000]}" for s in sample
+                f"[{s['file']}]: {s['content'][:5000]}" for s in sample
             )
 
         prompt = f"""You are building a CARDBOARD MODEL — quick, rough, meant to break.

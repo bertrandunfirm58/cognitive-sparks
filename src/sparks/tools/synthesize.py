@@ -58,6 +58,38 @@ Model accuracy: {latest.accuracy or 'unknown'}
 Failures: {chr(10).join('- ' + f for f in latest.failures[:5])}
 Insights: {chr(10).join('- ' + i for i in latest.insights[:5])}"""
 
+        # Collect outputs from ALL tools (not just core pipeline)
+        hypotheses_text = ""
+        hypotheses = getattr(state, 'hypotheses', [])
+        if hypotheses:
+            hypotheses_text = "\n".join(
+                f"- [{h.probability:.0%}] {h.statement}" for h in hypotheses[:8]
+            )
+
+        perspectives_text = ""
+        perspectives = getattr(state, 'perspective_insights', [])
+        if perspectives:
+            perspectives_text = "\n".join(
+                f"- **{p.perspective}**: {p.interpretation}" for p in perspectives[:8]
+            )
+
+        play_text = ""
+        discoveries = getattr(state, 'play_discoveries', [])
+        if discoveries:
+            play_text = "\n".join(
+                f"- [{'useful' if d.useful else 'dead end'}] Broke: {d.constraint_broken[:50]}... → {d.discovery[:80]}..."
+                for d in discoveries[:6]
+            )
+
+        # Body/dimension/transform observations (stored as observations with special channels)
+        special_obs = [o for o in state.observations if o.lens_used in
+                       ("body_thinking", "dimensional_thinking", "transformation")]
+        special_text = ""
+        if special_obs:
+            special_text = "\n".join(
+                f"- [{o.lens_used}] {o.content}" for o in special_obs[:10]
+            )
+
         prompt = f"""You are performing SYNTHESIS — the final integration.
 
 This is NOT summarization. This is the moment where all thinking tools
@@ -80,6 +112,18 @@ instrument plays its simple pattern but the combination creates complexity.
 
 ### Model Test Results
 {model_text}
+
+### Hypotheses (from imagination — "what if" scenarios)
+{hypotheses_text or "None."}
+
+### Empathy Insights (from inside the data's actors)
+{perspectives_text or "None."}
+
+### Play Discoveries (from breaking rules)
+{play_text or "None."}
+
+### Body/Dimension/Transform Observations
+{special_text or "None."}
 
 ### Full Context
 {ctx}
@@ -162,10 +206,6 @@ The principles should be:
 
 
 def _similar_enough(a: str, b: str) -> bool:
-    """Quick check if two statements refer to the same principle."""
-    a_words = set(a.lower().split())
-    b_words = set(b.lower().split())
-    if not a_words or not b_words:
-        return False
-    overlap = len(a_words & b_words) / min(len(a_words), len(b_words))
-    return overlap > 0.5
+    """Check if two statements refer to the same principle using TF-IDF similarity."""
+    from sparks.similarity import semantic_similarity
+    return semantic_similarity(a, b) > 0.4

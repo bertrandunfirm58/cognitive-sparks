@@ -42,15 +42,13 @@ def sense(state: CognitiveState) -> NervousSignals:
         prev = state.snapshots[state.round - 1]
         count_score = 1.0 - abs(len(state.principles) - prev.principle_count) / max(len(state.principles), prev.principle_count, 1)
 
-        curr_words = set()
-        for p in state.principles:
-            curr_words.update(p.statement.lower().split())
-        prev_words = set()
-        for s in prev.principle_statements:
-            prev_words.update(s.lower().split())
-
-        jaccard = len(curr_words & prev_words) / max(len(curr_words | prev_words), 1) if curr_words else 0.0
-        conv_signal = count_score * 0.4 + jaccard * 0.6
+        from sparks.similarity import principle_convergence_llm, principle_convergence
+        curr_stmts = [p.statement for p in state.principles]
+        try:
+            convergence_score, _ = principle_convergence_llm(curr_stmts, prev.principle_statements)
+        except Exception:
+            convergence_score, _ = principle_convergence(curr_stmts, prev.principle_statements)
+        conv_signal = count_score * 0.3 + convergence_score * 0.7
 
         # Excitation from convergence evidence
         signals.convergence_potential.contribute(conv_signal * 0.5)
