@@ -95,36 +95,145 @@ sparks run --goal "..." --data ./my-data/ --no-nervous
 
 ---
 
-## How It Works: Autonomic Cascade
+## Full Pipeline
 
-Unlike traditional agent frameworks that loop through tools in a fixed order, Sparks uses a **pulse-driven cascade**:
+### Phase A: Principle Extraction (`sparks run`)
 
 ```
-1. State encoded as sensory input (obs_count, hunger signals, etc.)
-2. Neural circuit runs ~5 ticks (signals propagate through connections)
-3. Tool population with HIGHEST activation above threshold -> FIRES
-4. Tool executes (LLM call) -> state mutates
-5. New state -> new sensory input -> circuit re-evaluates
-6. Repeat until: no tool above threshold OR sufficient_depth fires OR budget exhausted
+Goal + Data
+    |
+    v
+[Data Load] -> [Lens Bootstrap] -> [Adaptive Config]
+                domain detection     model routing per tool
+    |
+    v
++==============================================================+
+|               NEURAL CIRCUIT (Layer 0)                        |
+|                                                               |
+|  State -> Sensory Encoding -> Weight Propagation -> Tool Act  |
+|        (obs_hunger=1.0)     (80+ connections)   (threshold)   |
+|                                                               |
+|  Sensory(11) --> Signal(5) --> Tool(13) --> Mode(2)           |
+|  obs_count       convergence   observe      explore           |
+|  pat_hunger      anomaly       abstract     integrate         |
+|  confidence      sufficient    synthesize   (mutual inhib)    |
+|                                                               |
+|  Neuromodulation: DA(reward) NE(arousal) ACh(learning rate)   |
++==============================================================+
+    |
+    v (highest activation above threshold)
++==============================================================+
+|               AUTONOMIC CASCADE                               |
+|                                                               |
+|  while tool_activation > threshold:                           |
+|    1. Circuit runs 5 ticks (signals propagate)                |
+|    2. Highest activation tool = winner                        |
+|    3. should_run() local ganglion check                       |
+|    4. FIRE: tool executes (LLM call)                          |
+|    5. State mutates -> sensory re-encoding                    |
+|    6. Dopamine signal (success/failure)                       |
+|    7. STDP learning (connection weights update)               |
+|    8. Checkpoint saved (crash recovery)                       |
+|    9. Next tick -> back to step 1                             |
+|                                                               |
+|  Stops when: sufficient_depth fires                           |
+|           OR all tools below threshold (cascade exhausts)     |
+|           OR budget exhausted                                 |
++==============================================================+
+    |
+    v (cascade exhausted, tools below threshold)
++==============================================================+
+|               CONSOLIDATION (Sleep)                           |
+|                                                               |
+|  - Prune low-confidence observations (metabolic cleanup)      |
+|  - Merge duplicate patterns (memory compression)              |
+|  - Reset tool neurons to baseline                             |
+|  - Boost norepinephrine (wake up in explore mode)             |
+|  - Clear derived state, keep observations (strategic forget)  |
+|  - Re-encode sensory -> re-ignite cascade                     |
++==============================================================+
+    |
+    v (2nd cascade: deeper extraction from fresh perspective)
++==============================================================+
+|               CONVERGENCE                                     |
+|                                                               |
+|  Round 1 principles vs Round 2 principles                     |
+|  TF-IDF + Korean stemmer (free)                               |
+|  or LLM comparison (accurate, ~$0.01)                         |
+|                                                               |
+|  Found independently in both rounds = real principle          |
++==============================================================+
+    |
+    v
+OUTPUT: Principles + Analogies + Contradictions + Limitations
+        Circuit weights saved (cross-session learning)
+        Checkpoint cleaned up
 ```
 
-**No hardcoded tool order.** The sequence `observe -> patterns -> abstract -> analogize` emerges naturally because:
-- Empty state -> `obs_hunger=1.0` drives observe neuron highest
-- After observe -> `obs_count` rises, drives recognize_patterns
-- After patterns -> `pat_count` rises, drives abstract
-- After principles -> synthesize gets strongest input
+### Emergent Tool Ordering (no hardcoded sequence)
 
-This sequence is learned and evolves via STDP across sessions.
+The pipeline `observe -> patterns -> abstract -> synthesize` is NOT coded. It **emerges** from neural dynamics:
 
-### Consolidation (Sleep)
+| State | Winner | Activation | Why |
+|---|---|---|---|
+| Empty (no data) | **observe** | 0.59 | `obs_hunger=1.0` drives observe neuron |
+| 20 observations | **recognize_patterns** | 0.52 | `obs_count` rises, patterns hungry |
+| + 8 patterns | **abstract** | 0.55 | `pat_count` rises, principles hungry |
+| + 4 principles | **analogize** | 0.43 | principles drive analogy neuron |
+| + analogies | **synthesize** | 0.41 | all inputs ready, integrate mode |
 
-When no tool crosses threshold (cascade exhausts), the system "sleeps":
-- Prune low-confidence observations
-- Merge duplicate patterns
-- Reset tool populations to baseline
-- Boost norepinephrine (wake up refreshed, explore mode)
-- Clear derived state, keep observations
-- Re-ignite cascade from fresh perspective
+This sequence is learned via STDP and evolves across sessions.
+
+### Phase B-E: Full Loop (`sparks loop`)
+
+```
+B: VALIDATE   Principles + New Data -> support/contradict per principle
+      |
+      v
+C: EVOLVE     Low score -> refine/drop, high score -> keep
+      |        New patterns found -> add principles
+      v
+D: PREDICT    Validated principles + new situation -> testable predictions
+      |        (falsifiable, time-bound)
+      v
+E: FEEDBACK   Predictions vs outcomes -> strengthen/weaken/refine/drop
+      |        Dopamine signal updates principle confidence
+      |
+      +------> Back to B (--cycles N)
+
+Principles persist at ~/.sparks/loop/ and evolve across sessions.
+```
+
+### Phase F: Self-Optimization (`sparks optimize`)
+
+```
+1. DIAGNOSE      Analyze output.md -> per-tool quality score (0-1)
+      |          "model 0%, analogize 15%, synthesize 78%"
+      v
+2. GENERATE      Surgical prompt fixes + circuit weight tuning
+      |
+      v
+3. PLAY-VALIDATE Stress-test each fix BEFORE applying:
+      |          - INVERT: would the opposite change be better?
+      |          - REMOVE: would STDP self-correct without this fix?
+      |          - EXAGGERATE: push fix 10x — what breaks?
+      |          - SIDE EFFECTS: unintended changes?
+      |          -> safe / risky / reject per fix
+      v
+4. APPLY         Only safe fixes applied (with backup)
+
+Previous output -> optimize -> better prompts/weights -> better output -> ...
+```
+
+### Cross-Session Learning
+
+```
+Session 1:  Initial circuit weights -> run -> STDP learning -> save weights
+Session 2:  Load weights -> successful tool chains fire faster
+Session N:  Framework specializes to your domain
+            Market data: observe->patterns->abstract chain strengthened
+            Code analysis: observe->shift_dimension->model chain strengthened
+```
 
 ---
 
