@@ -61,10 +61,23 @@ For each pattern:
 - confidence: 0.0-1.0
 - evidence_refs: list of observation channels that support this
 
-Find at least 8 patterns. Absent patterns are especially valuable — don't skip them.
+## MINIMUM REQUIREMENTS
+- At least 8 patterns total
+- At least 2 MUST be type "absent"
+- At least 2 MUST be type "interference" (contradictions)
 
-Also look for CONTRADICTIONS: where the data says two conflicting things.
-Include them as type "interference" and note both sides in the description."""
+If you find zero contradictions, your analysis is almost certainly biased. Any real-world dataset spanning multiple months WILL contain contradictory signals. Zero contradictions = confirmation bias.
+
+### MANDATORY CONTRADICTION-SEEKING PASS
+After identifying recurring patterns, perform this step for EACH recurring pattern:
+- Actively search the observations for COUNTER-EXAMPLES: cases where the pattern did NOT hold
+- If a pattern has zero counter-examples across all observations, lower your confidence — it may be an artifact of source selection bias
+- Express contradictions using "vs" between the two sides (e.g., "Signal A suggests X vs Signal B suggests not-X")
+
+### NOTABLE ABSENCES CHECK
+Answer this question explicitly: "What patterns would you EXPECT to see in this type of data over this time period that are NOT present?" Missing expected patterns often reveal source data bias or blind spots more important than any pattern found.
+
+Absent patterns and contradictions are the MOST valuable outputs. A clean, contradiction-free analysis is a failed analysis."""
 
         result = llm_structured(
             prompt,

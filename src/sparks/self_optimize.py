@@ -55,10 +55,23 @@ class PromptFixBatch(BaseModel):
     fixes: list[PromptFix]
 
 
+class ConnectionChange(BaseModel):
+    source: str
+    target: str
+    new_weight: float
+    reason: str = ""
+
+
+class ThresholdChange(BaseModel):
+    population: str
+    new_threshold: float
+    reason: str = ""
+
+
 class CircuitTuning(BaseModel):
-    connection_changes: list[dict]  # [{source, target, new_weight, reason}]
-    threshold_changes: list[dict]  # [{population, new_threshold, reason}]
-    reason: str
+    connection_changes: list[ConnectionChange] = []
+    threshold_changes: list[ThresholdChange] = []
+    reason: str = ""
 
 
 # ─── Analyze Results ───
@@ -302,26 +315,19 @@ def apply_circuit_tuning(tuning: CircuitTuning):
 
     applied = []
     for change in tuning.connection_changes:
-        source = change.get("source", "")
-        target = change.get("target", "")
-        new_weight = change.get("new_weight", None)
-        if new_weight is None:
-            continue
         for conn in circuit.connections:
-            if conn.source == source and conn.target == target:
+            if conn.source == change.source and conn.target == change.target:
                 old = conn.weight
-                conn.weight = max(0.01, min(1.0, float(new_weight)))
-                applied.append(f"{source}→{target}: {old:.2f}→{conn.weight:.2f}")
+                conn.weight = max(0.01, min(1.0, change.new_weight))
+                applied.append(f"{change.source}→{change.target}: {old:.2f}→{conn.weight:.2f}")
                 break
 
     for change in tuning.threshold_changes:
-        pop_name = change.get("population", "")
-        new_thr = change.get("new_threshold", None)
-        if new_thr is None or pop_name not in circuit.populations:
+        if change.population not in circuit.populations:
             continue
-        old = circuit.populations[pop_name].threshold
-        circuit.populations[pop_name].threshold = max(0.1, min(0.9, float(new_thr)))
-        applied.append(f"{pop_name} threshold: {old:.2f}→{circuit.populations[pop_name].threshold:.2f}")
+        old = circuit.populations[change.population].threshold
+        circuit.populations[change.population].threshold = max(0.1, min(0.9, change.new_threshold))
+        applied.append(f"{change.population} threshold: {old:.2f}→{circuit.populations[change.population].threshold:.2f}")
 
     circuit.save()
     return applied
@@ -377,7 +383,7 @@ def self_optimize(
     circuit_tuning = tune_circuit(diagnosis, tracker)
 
     for change in circuit_tuning.connection_changes:
-        console.print(f"  {change.get('source')}→{change.get('target')}: {change.get('new_weight')} ({change.get('reason', '')[:40]})")
+        console.print(f"  {change.source}→{change.target}: {change.new_weight} ({change.reason[:40]})")
 
     # 4. Apply
     if apply:

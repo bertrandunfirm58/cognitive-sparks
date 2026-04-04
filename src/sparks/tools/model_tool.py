@@ -70,13 +70,26 @@ Use the extracted principles as a model to EXPLAIN the sample data.
 
 For each sample item, try to explain it using ONLY the principles above.
 
+### MANDATORY TESTING PROTOCOL
+Before reporting results, perform these three tests for EACH principle:
+
+**Test A — Testable Predictions:** Generate 2-3 specific, falsifiable predictions from the principle. Check each prediction against observations NOT already cited as evidence for that principle. A principle that only explains its own evidence is circular.
+
+**Test B — Historical Stress Test:** For each principle, identify at least one historical analogue period (e.g., 2008 GFC, 2018 volmageddon, 2020 COVID crash, 2022 UK gilt crisis, dot-com bubble). Would the principle have held during that period? If you cannot identify a historical test, flag the principle as "untested."
+
+**Test C — Novelty Check:** Is this principle well-documented in existing literature (market microstructure, behavioral finance, etc.) or genuinely novel? Novel principles require HIGHER evidence bars, not lower.
+
+### CONFIDENCE CAP RULE
+No principle may receive >85% confidence unless it passes at least ONE empirical test (A or B). Principles that fail both tests must be capped at 60% regardless of how intuitive they seem.
+
 Report:
 1. accuracy_estimate: What fraction of the data can the principles explain? (0.0-1.0)
 2. explained: List what the principles successfully explain
 3. failures: List what the principles CANNOT explain — this is the most valuable output!
    "What breaks?" reveals where understanding is lacking.
-4. insights: What did you learn from trying to apply the model?
-   Did any principle seem wrong? Too narrow? Too broad?
+4. insights: What did you learn from the three tests?
+   Which principles survived stress testing? Which broke?
+   Which are novel vs. well-known? Which predictions failed?
 
 A 50% accuracy cardboard model that reveals its blind spots
 is more valuable than a 70% model that hides them."""

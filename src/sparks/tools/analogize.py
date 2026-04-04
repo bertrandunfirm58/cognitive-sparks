@@ -57,19 +57,32 @@ NOT like a baseball and an orange — both are round (mere resemblance).
 {ctx}
 
 ## Task
-For each principle, find 1-2 STRUCTURAL analogies from other domains:
-- History, science, nature, economics, art, engineering...
-- The analogy must share the same MECHANISM, not just topic
-- From the analogy, derive a PREDICTION about the current data
+You MUST produce at least 2 structural analogies per principle. This is not optional.
+If you have 5 principles, produce at minimum 10 analogies.
+
+For each principle, find 2-3 STRUCTURAL analogies from DIFFERENT domains:
+- Physics (phase transitions, critical states, resonance, entropy)
+- Biology (homeostasis, evolution, predator-prey dynamics, immune response)
+- Information theory (signal/noise, compression, channel capacity)
+- History (empire cycles, technology adoption curves, social contagion)
+- Engineering (feedback loops, governor mechanisms, load balancing)
+
+The analogy must share the same MECHANISM, not just topic.
+
+### ANALOGY VALIDATION
+For each analogy, answer these two questions:
+1. Does the analogous system make a prediction about the current data that is NOT already stated in the principle? If no, the analogy is decorative — discard it.
+2. Can you identify where the analogy BREAKS DOWN? Every analogy has limits. Stating the breakdown boundary makes the analogy more useful, not less.
 
 For each analogy:
 - current: the principle being matched
-- past_match: the analogous case from another domain
+- past_match: the analogous case from another domain (be specific — name the phenomenon)
 - structural_mapping: what maps to what (A→X, B→Y, therefore C→?)
-- prediction: what the analogy suggests will happen / is true
+- prediction: a NEW prediction the analogy generates about the current data
 - confidence: 0.0-1.0
 
-Filter ruthlessly: if it's resemblance, not analogy, discard it."""
+Filter ruthlessly: if it's resemblance, not analogy, discard it.
+But do NOT filter so aggressively that you return zero — that means the tool failed."""
 
         result = llm_structured(
             prompt,
