@@ -36,6 +36,11 @@ MODEL_ROUTING: dict[str, str] = {
     "shift_dimension": _OPUS if _ALL_OPUS else _HAIKU,
     "play": _OPUS if _ALL_OPUS else _SONNET,
     "transform": _OPUS if _ALL_OPUS else _HAIKU,
+    # Loop phases
+    "validate": _OPUS if _ALL_OPUS else _SONNET,
+    "evolve": _OPUS if _ALL_OPUS else _SONNET,
+    "predict": _OPUS if _ALL_OPUS else _SONNET,
+    "feedback": _OPUS if _ALL_OPUS else _SONNET,
     # Infrastructure
     "lens_generate": _OPUS if _ALL_OPUS else _SONNET,
     "quick_scan": _OPUS if _ALL_OPUS else _HAIKU,

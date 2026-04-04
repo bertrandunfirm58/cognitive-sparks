@@ -93,6 +93,31 @@ def evolve(
 
 
 @app.command()
+def loop(
+    principles: str = typer.Option(..., "--principles", "-p", help="Path to .md output or store name"),
+    data: str = typer.Option("", "--data", "-d", help="New data directory for validation"),
+    cycles: int = typer.Option(1, "--cycles", "-n", help="B→C validation cycles"),
+    budget: float = typer.Option(10.0, "--budget", "-b", help="Max cost in dollars"),
+    predict: str = typer.Option("", "--predict", help="Situation to generate predictions for"),
+    outcomes: str = typer.Option("", "--outcomes", help="Actual outcomes for feedback"),
+):
+    """Full loop: Validate → Evolve → Predict → Feedback."""
+    from sparks.loop import run_loop
+
+    console.print(f"\n[bold cyan]⚡ Sparks[/] — Full Loop (B→F)")
+
+    data_dirs = [data] if data else []
+    run_loop(
+        principles_source=principles,
+        data_dirs=data_dirs,
+        cycles=cycles,
+        budget=budget,
+        predict_input=predict,
+        outcomes=outcomes,
+    )
+
+
+@app.command()
 def info():
     """Show framework info."""
     from sparks import __version__
