@@ -68,6 +68,13 @@ class ThresholdChange(BaseModel):
     reason: str = ""
 
 
+class PlayValidation(BaseModel):
+    """Play-test each proposed fix before applying."""
+    fix_verdicts: list[dict]  # [{fix_name, verdict, risk, keep}]
+    overall_safe: bool
+    warnings: list[str] = []
+
+
 class CircuitTuning(BaseModel):
     connection_changes: list[ConnectionChange] = []
     threshold_changes: list[ThresholdChange] = []
@@ -206,6 +213,83 @@ Rules:
         tool="prompt_fix",
         tracker=tracker,
         max_tokens=8192,
+    )
+
+    return result
+
+
+# ─── Play-Validate Fixes (stress test before applying) ───
+
+
+def play_validate(
+    diagnosis: DiagnosisBatch,
+    prompt_fixes: PromptFixBatch,
+    circuit_tuning: CircuitTuning,
+    tracker: CostTracker,
+) -> PlayValidation:
+    """Play = systematic rule-breaking applied to the FIXES themselves.
+
+    Before applying any change, stress-test it:
+    1. INVERT: What if the opposite change were better?
+    2. REMOVE: What if we just don't change anything?
+    3. EXAGGERATE: What if we push this fix 10x further?
+    4. SIDE EFFECTS: What does this fix break?
+    """
+    fixes_text = "\n".join(
+        f"- [{f.tool_name}] {f.reason[:80]}"
+        for f in prompt_fixes.fixes
+    )
+
+    tuning_text = "\n".join(
+        f"- {c.source}→{c.target}: weight={c.new_weight} ({c.reason[:50]})"
+        for c in circuit_tuning.connection_changes
+    ) or "No circuit changes."
+
+    prompt = f"""You are a PLAY-VALIDATOR. Your job is to STRESS-TEST proposed changes before they're applied.
+
+## Diagnosis Summary
+Overall quality: {diagnosis.overall_quality:.0%}
+Bottleneck: {diagnosis.bottleneck}
+
+## Proposed Prompt Fixes
+{fixes_text}
+
+## Proposed Circuit Weight Changes
+{tuning_text}
+
+## Your Job: Break Each Fix
+
+For EACH proposed fix, perform these play-tests:
+
+1. **INVERT**: What if the OPPOSITE change were better?
+   e.g., "Add minimum output count" → What if the problem is TOO MUCH output, not too little?
+
+2. **REMOVE**: What if we just don't apply this fix?
+   Would the system self-correct through STDP learning instead?
+
+3. **EXAGGERATE**: Push the fix to extreme. What breaks?
+   e.g., "Minimum 2 contradictions" → What if we require 10? Does it force fake contradictions?
+
+4. **SIDE EFFECTS**: What else does this fix change unintentionally?
+   e.g., "Force model testing" → Does this slow down quick-depth runs?
+   e.g., "Increase analogize weight" → Does this starve other tools of activation?
+
+For each fix, give a verdict:
+- fix_name: which fix
+- verdict: "safe" | "risky" | "reject" with explanation
+- risk: what could go wrong (even if verdict is safe)
+- keep: true/false — should we apply this?
+
+Also give:
+- overall_safe: true if all kept fixes are safe together (no interaction effects)
+- warnings: any concerns about the combined effect of all fixes"""
+
+    result = llm_structured(
+        prompt,
+        model=tracker.select_model("optimize"),
+        schema=PlayValidation,
+        tool="play_validate",
+        tracker=tracker,
     )
 
     return result
@@ -385,9 +469,37 @@ def self_optimize(
     for change in circuit_tuning.connection_changes:
         console.print(f"  {change.source}→{change.target}: {change.new_weight} ({change.reason[:40]})")
 
-    # 4. Apply
+    # 3.5. Play-validate: stress-test fixes before applying
+    console.print(f"\n[bold]Phase 3.5: Play-validating fixes (stress test)...[/]")
+    validation = play_validate(diagnosis, prompt_fixes, circuit_tuning, tracker)
+
+    rejected = set()
+    for v in validation.fix_verdicts:
+        name = v.get("fix_name", "")
+        verdict = v.get("verdict", "safe")
+        keep = v.get("keep", True)
+        risk = v.get("risk", "")
+        icon = "[green]✓ safe[/]" if verdict == "safe" else "[yellow]⚠ risky[/]" if verdict == "risky" else "[red]✗ reject[/]"
+        console.print(f"  {icon} {name}: {risk[:60]}")
+        if not keep:
+            rejected.add(name)
+
+    if validation.warnings:
+        for w in validation.warnings:
+            console.print(f"  [yellow]⚠ {w}[/]")
+
+    if not validation.overall_safe:
+        console.print(f"  [red]⚠ Overall: NOT safe to apply all together[/]")
+
+    # Filter out rejected fixes
+    if rejected:
+        original_count = len(prompt_fixes.fixes)
+        prompt_fixes.fixes = [f for f in prompt_fixes.fixes if f.tool_name not in rejected]
+        console.print(f"  [dim]Filtered: {original_count} → {len(prompt_fixes.fixes)} fixes (rejected {len(rejected)})[/]")
+
+    # 4. Apply (only validated fixes)
     if apply:
-        console.print(f"\n[bold]Phase 4: Applying changes...[/]")
+        console.print(f"\n[bold]Phase 4: Applying validated changes...[/]")
         prompt_applied = apply_prompt_fixes(prompt_fixes, dry_run=False)
         for msg in prompt_applied:
             console.print(f"  {msg}")
@@ -408,8 +520,10 @@ def self_optimize(
     log_path.write_text(json.dumps({
         "output_analyzed": output_path,
         "diagnosis": diagnosis.model_dump(),
+        "play_validation": validation.model_dump(),
         "prompt_fixes": prompt_fixes.model_dump(),
         "circuit_tuning": circuit_tuning.model_dump(),
+        "rejected_fixes": list(rejected),
         "applied": apply,
         "cost": tracker.total_cost,
     }, indent=2, ensure_ascii=False, default=str))
