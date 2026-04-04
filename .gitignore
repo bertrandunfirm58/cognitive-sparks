@@ -8,3 +8,5 @@ output/
 demo/v3_data/
 *.db
 .claude/
+blog_devto.md
+post_sideproject.md

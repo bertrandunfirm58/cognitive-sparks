@@ -289,10 +289,10 @@ class NeuralCircuit(BaseModel):
 
     def _connect(self, source: str, target: str, weight: float,
                  sign: int = 1, plasticity: bool = True):
-        """Add a connection."""
+        """Add a connection. sign=1 excitatory, sign=-1 inhibitory."""
         self.connections.append(Connection(
             source=source, target=target,
-            weight=abs(weight), sign=sign if weight >= 0 else -sign,
+            weight=abs(weight), sign=sign,
             plasticity=plasticity,
         ))
 
@@ -415,7 +415,7 @@ class NeuralCircuit(BaseModel):
                 continue  # Close enough
 
             # Scale all incoming connections
-            scale = 1.0 - 0.02 * error  # Over-active → shrink, under-active → grow
+            scale = 1.0 - 0.06 * error  # Over-active → shrink, under-active → grow
             for conn in self.connections:
                 if conn.target == name and conn.plasticity:
                     conn.weight = max(0.01, min(1.0, conn.weight * scale))
@@ -502,9 +502,10 @@ class NeuralCircuit(BaseModel):
             "confidence_avg": avg_conf,
             "cost_ratio": getattr(state.signals, 'total_cost', 0) / 20.0,
             # Absence signals (high when data is MISSING — like hunger)
-            "obs_hunger": max(0.0, 1.0 - n_obs / 20),    # Starving for observations
-            "pat_hunger": max(0.0, 1.0 - n_pat / 8),      # Need patterns
-            "prin_hunger": max(0.0, 1.0 - n_prin / 4),    # Need principles
+            # Denominators match presence signals for consistency
+            "obs_hunger": max(0.0, 1.0 - n_obs / 50),    # Starving for observations
+            "pat_hunger": max(0.0, 1.0 - n_pat / 15),     # Need patterns
+            "prin_hunger": max(0.0, 1.0 - n_prin / 8),    # Need principles
         }
 
     # ─── Record Tool Outcome (for STDP) ───
@@ -538,7 +539,8 @@ class NeuralCircuit(BaseModel):
         data = {
             "connections": [
                 {"source": c.source, "target": c.target,
-                 "weight": c.weight, "sign": c.sign}
+                 "weight": c.weight, "sign": c.sign,
+                 "plasticity": c.plasticity}
                 for c in self.connections
             ],
             "baselines": {
@@ -569,6 +571,7 @@ class NeuralCircuit(BaseModel):
                 key = (conn.source, conn.target)
                 if key in saved_conns:
                     conn.weight = saved_conns[key]["weight"]
+                    conn.plasticity = saved_conns[key].get("plasticity", True)
 
             # Restore baselines
             for name, baseline in data.get("baselines", {}).items():

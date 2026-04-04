@@ -155,16 +155,19 @@ def run_autonomic(
     console.print(f"\n[bold]⚡ Autonomic cascade starting[/]")
     output = SynthesisOutput()
     firings = 0
+    ticks = 0  # Safety counter for total circuit updates
+    MAX_TICKS = MAX_FIRINGS * 20  # Prevent infinite spinning
     firing_log: list[str] = []
     consolidation_done = False
 
-    while firings < MAX_FIRINGS:
+    while firings < MAX_FIRINGS and ticks < MAX_TICKS:
         # 1. Encode current state as sensory input
         sensory = NeuralCircuit.encode_state(state)
 
         # 2. Run circuit for several ticks (let signals propagate)
         for _ in range(TICKS_PER_STEP):
             circuit.update(sensory, dt=0.3)
+        ticks += TICKS_PER_STEP
 
         # 3. Check termination conditions
         if circuit.get_fired("sufficient"):
@@ -203,7 +206,8 @@ def run_autonomic(
         tool = tools[winner]
         if hasattr(tool, 'should_run') and not tool.should_run(state):
             # Tool's local rule says no — suppress it temporarily
-            circuit.populations[winner].refractory = 2.0  # Cool it down
+            circuit.populations[winner].refractory = 2.0
+            ticks += 1
             continue
 
         # 7. FIRE! Execute the tool
@@ -312,6 +316,10 @@ def _do_consolidation(state: CognitiveState, circuit: NeuralCircuit):
 
     state.clean_slate()
     state.phase = Phase.ITERATIVE
+
+    # Re-encode sensory state after reset so circuit sees the new reality
+    sensory = NeuralCircuit.encode_state(state)
+    circuit.update(sensory, dt=0.5)
 
 
 def _avg_conf(state: CognitiveState) -> float:

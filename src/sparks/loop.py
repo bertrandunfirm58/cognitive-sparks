@@ -439,7 +439,7 @@ For each result:
     # Apply feedback to principle confidence
     for fr in result.results:
         for p in principles.principles:
-            if _match(p["statement"], fr.prediction) or _match(p["statement"], fr.prediction):
+            if _match(p["statement"], fr.prediction) or _match(p["statement"], fr.outcome):
                 lr = 0.2
                 if fr.principle_adjustment == "strengthen":
                     p["confidence"] = min(0.99, p["confidence"] + lr * (1.0 - p["confidence"]))
@@ -563,9 +563,18 @@ def run_loop(
 
 
 def _match(a: str, b: str) -> bool:
-    """Quick fuzzy match between two principle statements."""
-    a_words = set(a.lower().split()[:10])
-    b_words = set(b.lower().split()[:10])
+    """Fuzzy match between two principle statements.
+
+    Uses full text (not truncated) and higher threshold to avoid false positives.
+    Filters stop words to focus on meaningful content overlap.
+    """
+    stop = {"the", "a", "an", "is", "are", "was", "were", "in", "on", "at",
+            "to", "for", "of", "and", "or", "but", "not", "with", "by", "from",
+            "이", "그", "저", "의", "가", "을", "를", "은", "는", "에", "에서",
+            "으로", "로", "와", "과", "도", "만", "한", "할", "하는", "된", "되는"}
+    a_words = set(a.lower().split()) - stop
+    b_words = set(b.lower().split()) - stop
     if not a_words or not b_words:
         return False
-    return len(a_words & b_words) / min(len(a_words), len(b_words)) > 0.4
+    overlap = len(a_words & b_words) / min(len(a_words), len(b_words))
+    return overlap > 0.6
