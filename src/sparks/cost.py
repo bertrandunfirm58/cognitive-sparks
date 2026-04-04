@@ -56,6 +56,8 @@ MODEL_ROUTING: dict[str, str] = {
     "evolve": _OPUS if _ALL_OPUS else _SONNET,
     "predict": _OPUS if _ALL_OPUS else _SONNET,
     "feedback": _OPUS if _ALL_OPUS else _SONNET,
+    # Self-optimization
+    "optimize": _OPUS if _ALL_OPUS else _SONNET,
     # Infrastructure
     "lens_generate": _OPUS if _ALL_OPUS else _SONNET,
     "quick_scan": _OPUS if _ALL_OPUS else _HAIKU,

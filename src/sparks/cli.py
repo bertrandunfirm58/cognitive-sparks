@@ -123,6 +123,16 @@ def loop(
 
 
 @app.command()
+def optimize(
+    output: str = typer.Option(..., "--output", "-o", help="Path to analysis output (.md) to optimize from"),
+    apply: bool = typer.Option(False, "--apply", help="Actually apply changes (default: dry run)"),
+):
+    """Self-optimize: analyze output quality, fix prompts, tune circuit."""
+    from sparks.self_optimize import self_optimize
+    self_optimize(output_path=output, apply=apply)
+
+
+@app.command()
 def info():
     """Show framework info."""
     from sparks import __version__
