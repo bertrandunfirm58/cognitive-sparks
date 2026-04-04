@@ -60,6 +60,7 @@ from sparks.circuit import NeuralCircuit
 from sparks.cost import CostTracker, DEPTH_BUDGETS, get_active_tools
 from sparks.data import DataStore
 from sparks.events import EventBus
+from sparks.explain import explain_firing, CascadeTrace
 from sparks.lens import bootstrap_lens, quick_scan, sense_domain
 from sparks.configurator import ToolConfigurator, apply_config
 from sparks.nervous import (
@@ -85,6 +86,7 @@ def run_autonomic(
     goal: str,
     data_path: str,
     depth: str = "standard",
+    ablate: dict[str, bool] | None = None,
 ) -> SynthesisOutput:
     """Autonomic execution: circuit drives everything.
 
@@ -108,6 +110,15 @@ def run_autonomic(
 
     # ── Neural Circuit ──
     circuit = NeuralCircuit()
+    # Apply ablation flags
+    if ablate:
+        for key, val in ablate.items():
+            if hasattr(circuit, key) and val:
+                setattr(circuit, key, True)
+        ablated = [k.replace("ablate_", "") for k, v in ablate.items() if v]
+        if ablated:
+            console.print(f"   [yellow]🔬 Ablation: {', '.join(ablated)} disabled[/]")
+    # Domain will be set after lens bootstrap — load default for now
     if circuit.load():
         console.print(f"   [dim]🧠 Loaded persistent circuit (t={circuit.time_step})[/]")
     else:
@@ -126,8 +137,17 @@ def run_autonomic(
     # ── Bootstrap Lens ──
     console.print("\n[bold]🔍 Bootstrapping lens...[/]")
     state.lens = bootstrap_lens(data, goal, tracker=tracker)
-    console.print(f"   Domain: [cyan]{state.lens.domain}[/]")
+    detected_domain = state.lens.domain
+    console.print(f"   Domain: [cyan]{detected_domain}[/]")
     console.print(f"   Focus: {state.lens.focus_questions[0] if state.lens.focus_questions else 'general'}")
+
+    # Try loading domain-specific circuit weights
+    if circuit.load(domain=detected_domain):
+        drift = circuit.detect_drift(domain=detected_domain)
+        if drift["anomalous"]:
+            console.print(f"   [yellow]⚠️ Weight drift anomaly detected (mean={drift['mean_drift']:.3f}, max={drift['max_drift']:.3f})[/]")
+        else:
+            console.print(f"   [dim]🧠 Domain-specific weights loaded ({detected_domain})[/]")
 
     # ── Adaptive Configuration ──
     import os
@@ -166,6 +186,7 @@ def run_autonomic(
     firing_counts: dict[str, int] = {}  # Per-tool fire count
     MAX_PER_TOOL = 3  # No tool fires more than 3 times per cascade
     consolidation_done = False
+    trace = CascadeTrace()  # Explainability trace
 
     while firings < MAX_FIRINGS and ticks < MAX_TICKS:
         # 1. Encode current state as sensory input
@@ -178,10 +199,12 @@ def run_autonomic(
 
         # 3. Check termination conditions
         if circuit.get_fired("sufficient"):
+            trace.termination_reason = "sufficient_depth fired"
             console.print(f"   [green]✅ sufficient_depth fired → stopping[/]")
             break
 
         if not tracker.can_afford(tracker.select_model("synthesize")):
+            trace.termination_reason = "budget exhausted"
             console.print(f"   [yellow]⚠️ Budget exhausted[/]")
             break
 
@@ -201,9 +224,11 @@ def run_autonomic(
                 console.print(f"   [dim]😴 No tool above threshold → consolidation[/]")
                 _do_consolidation(state, circuit)
                 consolidation_done = True
+                trace.consolidation_events.append(firings)
                 firing_counts = {}  # Reset per-tool limits after sleep
                 continue
             else:
+                trace.termination_reason = f"cascade exhausted ({firings} firings)"
                 console.print(f"   [dim]⚡ Cascade exhausted ({firings} firings)[/]")
                 break
 
@@ -236,18 +261,23 @@ def run_autonomic(
 
         # 7. FIRE! Execute the tool
         firings += 1
-        mode = circuit.get_mode()
-        mode_icon = {"sympathetic": "🔴", "parasympathetic": "🔵", "balanced": "⚪"}.get(mode, "⚪")
 
-        # Show what's happening BEFORE the LLM call (so user isn't staring at blank screen)
+        # Explainability: generate structured explanation
+        suppressed = [
+            name for name, rate in activations.items()
+            if name in tools and rate >= FIRE_THRESHOLD
+            and firing_counts.get(name, 0) >= MAX_PER_TOOL
+        ]
+        explanation = explain_firing(circuit, winner, candidates, suppressed)
+        trace.add(explanation)
+
+        # Show rich explanation BEFORE the LLM call
         state_summary = (
             f"obs={len(state.observations)} pat={len(state.patterns)} "
             f"prin={len(state.principles)} ana={len(state.analogies)}"
         )
-        console.print(
-            f"   {mode_icon} [{firings:2d}] [bold]{winner}[/] "
-            f"(act={activation:.2f}, {mode}) [{state_summary}]"
-        )
+        console.print(explanation.format_log(firings))
+        console.print(f"         [dim][{state_summary}][/]")
 
         # Track state before execution (for Hebbian learning)
         pre_counts = {
@@ -324,8 +354,19 @@ def run_autonomic(
 
     # Save everything
     memory.end_session(state, output)
-    circuit.save()
+    circuit.save(domain=detected_domain)
     ckpt.cleanup()  # Success — remove checkpoint files
+
+    # Save explainability trace
+    import json
+    from pathlib import Path
+    trace_dir = Path.home() / ".sparks" / "traces"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    trace_path = trace_dir / f"trace_{ckpt.run_id}.json"
+    trace_path.write_text(json.dumps(trace.to_dict(), indent=2, ensure_ascii=False))
+
+    # Also attach trace to output
+    output.thinking_process["cascade_trace"] = trace.to_dict()
 
     # ── Report ──
     console.print(f"\n[bold]═══ Cascade Complete ═══[/]")
@@ -335,6 +376,7 @@ def run_autonomic(
     console.print(f"\n{circuit.status()}")
     console.print(f"\n[bold]💰 Cost:[/] ${tracker.total_cost:.2f} / ${budget.max_cost:.2f}")
     console.print(f"[bold]📋 {len(state.principles)} principles[/] (avg confidence: {_avg_conf(state):.0%})")
+    console.print(f"[dim]📊 Trace saved: {trace_path}[/]")
 
     return output
 

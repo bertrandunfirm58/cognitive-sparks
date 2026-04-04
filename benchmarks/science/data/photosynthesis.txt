@@ -1,0 +1,24 @@
+Photosynthesis converts light energy into chemical energy stored in glucose.
+The process occurs in two stages: light-dependent reactions and the Calvin cycle.
+Light-dependent reactions take place in the thylakoid membranes of chloroplasts.
+Water molecules are split, releasing oxygen as a byproduct.
+The Calvin cycle occurs in the stroma and fixes CO2 into organic molecules.
+RuBisCO is the most abundant enzyme on Earth and catalyzes carbon fixation.
+C4 plants evolved a carbon-concentrating mechanism to reduce photorespiration.
+CAM plants open stomata at night to conserve water in arid environments.
+Photosystem II absorbs light at 680nm, Photosystem I at 700nm.
+The Z-scheme describes electron flow through both photosystems.
+ATP synthase uses the proton gradient to produce ATP (chemiosmosis).
+Chlorophyll a is the primary pigment; accessory pigments expand absorption range.
+Photorespiration wastes energy by fixing O2 instead of CO2.
+Temperature affects enzyme activity — too high denatures RuBisCO.
+Light intensity follows a saturation curve — beyond a point, more light doesn't help.
+The compensation point is where photosynthesis exactly equals respiration.
+Limiting factors include CO2 concentration, light intensity, and temperature.
+Plants in shade develop larger leaves with more chloroplasts.
+Sun plants have higher light saturation points and maximum photosynthesis rates.
+Greenhouse effect increases atmospheric CO2, potentially boosting photosynthesis but also raising temperature.
+Nitrogen fixation by cyanobacteria originally introduced oxygen to Earth's atmosphere.
+Photosynthetic organisms produce approximately 100 billion tons of biomass annually.
+Artificial photosynthesis aims to replicate the process for clean energy production.
+Quantum coherence may play a role in energy transfer efficiency in photosystems.

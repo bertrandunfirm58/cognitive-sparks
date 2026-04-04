@@ -129,6 +129,13 @@ class NeuralCircuit(BaseModel):
     # Homeostatic target
     target_rate: float = 0.3    # Desired average firing rate
 
+    # Ablation flags (disable individual components for experiments)
+    ablate_dopamine: bool = False
+    ablate_norepinephrine: bool = False
+    ablate_acetylcholine: bool = False
+    ablate_stdp: bool = False
+    ablate_homeostatic: bool = False
+
     def model_post_init(self, __context):
         if not self.populations:
             self._init_populations()
@@ -332,10 +339,11 @@ class NeuralCircuit(BaseModel):
                 pop.step(currents.get(name, 0.0), dt=dt)
 
         # 4. STDP learning
-        self._apply_stdp()
+        if not self.ablate_stdp:
+            self._apply_stdp()
 
         # 5. Homeostatic plasticity (every 5 steps)
-        if self.time_step % 5 == 0:
+        if self.time_step % 5 == 0 and not self.ablate_homeostatic:
             self._homeostatic_plasticity()
 
         # 6. Update neuromodulators
@@ -348,15 +356,19 @@ class NeuralCircuit(BaseModel):
         DA increases gain for recently-rewarded populations.
         ACh increases gain for learning-related populations.
         """
-        base_gain = 0.8 + 0.4 * self.norepinephrine  # 0.8 - 1.2
+        ne = 0.5 if self.ablate_norepinephrine else self.norepinephrine
+        da = 0.0 if self.ablate_dopamine else self.dopamine
+        ach = 0.5 if self.ablate_acetylcholine else self.acetylcholine
+
+        base_gain = 0.8 + 0.4 * ne  # 0.8 - 1.2
 
         if pop_name in TOOLS:
             # Dopamine boosts tool activation when reward is positive
-            base_gain += 0.2 * max(0, self.dopamine)
+            base_gain += 0.2 * max(0, da)
 
         if pop_name in SIGNALS:
             # ACh increases signal sensitivity (learning precision)
-            base_gain += 0.15 * self.acetylcholine
+            base_gain += 0.15 * ach
 
         return max(0.3, min(2.0, base_gain))
 
@@ -367,7 +379,9 @@ class NeuralCircuit(BaseModel):
         If source fires AFTER target → weaken (LTD)
         Magnitude modulated by dopamine (reward-modulated STDP).
         """
-        lr = self.stdp_lr * (1.0 + abs(self.dopamine) * self.acetylcholine)
+        da = 0.0 if self.ablate_dopamine else self.dopamine
+        ach = 0.5 if self.ablate_acetylcholine else self.acetylcholine
+        lr = self.stdp_lr * (1.0 + abs(da) * ach)
 
         for conn in self.connections:
             if not conn.plasticity:
@@ -384,7 +398,7 @@ class NeuralCircuit(BaseModel):
                 if abs(dt_spike) <= self.stdp_window:
                     # LTP: source fired before or with target
                     dw = lr * math.exp(-abs(dt_spike) / max(self.stdp_window, 1))
-                    if self.dopamine >= 0:
+                    if da >= 0:
                         conn.weight = min(1.0, conn.weight + dw)
                     else:
                         # Negative dopamine → LTD instead
@@ -424,21 +438,30 @@ class NeuralCircuit(BaseModel):
         """Update neuromodulators based on circuit state.
 
         Unlike if-else: modulators respond to NEURAL ACTIVITY, not state variables.
+        Ablated modulators are clamped to neutral values.
         """
         # Dopamine: prediction error = (actual convergence - expected)
-        conv_rate = self.populations.get("convergence", NeuralPopulation(name="x")).rate
-        suff_rate = self.populations.get("sufficient", NeuralPopulation(name="x")).rate
-        self.dopamine = 0.8 * self.dopamine + 0.2 * (conv_rate - 0.5)
+        if not self.ablate_dopamine:
+            conv_rate = self.populations.get("convergence", NeuralPopulation(name="x")).rate
+            self.dopamine = 0.8 * self.dopamine + 0.2 * (conv_rate - 0.5)
+        else:
+            self.dopamine = 0.0
 
         # Norepinephrine: high when anomaly/contradiction, low when converging
-        anomaly_rate = self.populations.get("anomaly", NeuralPopulation(name="x")).rate
-        contra_rate = self.populations.get("contradiction", NeuralPopulation(name="x")).rate
-        arousal = (anomaly_rate + contra_rate) / 2
-        self.norepinephrine = 0.7 * self.norepinephrine + 0.3 * (0.3 + arousal)
+        if not self.ablate_norepinephrine:
+            anomaly_rate = self.populations.get("anomaly", NeuralPopulation(name="x")).rate
+            contra_rate = self.populations.get("contradiction", NeuralPopulation(name="x")).rate
+            arousal = (anomaly_rate + contra_rate) / 2
+            self.norepinephrine = 0.7 * self.norepinephrine + 0.3 * (0.3 + arousal)
+        else:
+            self.norepinephrine = 0.5
 
         # Acetylcholine: high early (learning), low late (exploitation)
-        round_rate = self.populations.get("round_num", NeuralPopulation(name="x")).rate
-        self.acetylcholine = 0.8 * self.acetylcholine + 0.2 * (1.0 - round_rate * 0.5)
+        if not self.ablate_acetylcholine:
+            round_rate = self.populations.get("round_num", NeuralPopulation(name="x")).rate
+            self.acetylcholine = 0.8 * self.acetylcholine + 0.2 * (1.0 - round_rate * 0.5)
+        else:
+            self.acetylcholine = 0.5
 
     # ─── Read State ───
 
@@ -515,10 +538,11 @@ class NeuralCircuit(BaseModel):
 
         This is the reward signal that drives STDP learning.
         """
-        if success:
-            self.dopamine = min(1.0, self.dopamine + 0.3)
-        else:
-            self.dopamine = max(-1.0, self.dopamine - 0.2)
+        if not self.ablate_dopamine:
+            if success:
+                self.dopamine = min(1.0, self.dopamine + 0.3)
+            else:
+                self.dopamine = max(-1.0, self.dopamine - 0.2)
 
         # Also boost/suppress the tool's population
         if tool_name in self.populations:
@@ -531,12 +555,13 @@ class NeuralCircuit(BaseModel):
 
     # ─── Persistence ───
 
-    def save(self, path: Optional[str] = None):
-        """Save circuit state (weights + baselines) for cross-session learning."""
-        save_path = Path(path) if path else Path.home() / ".sparks" / "circuit.json"
-        save_path.parent.mkdir(parents=True, exist_ok=True)
+    @staticmethod
+    def _circuit_dir() -> Path:
+        return Path.home() / ".sparks" / "circuits"
 
-        data = {
+    def _to_dict(self) -> dict:
+        """Serialize circuit state to dict."""
+        return {
             "connections": [
                 {"source": c.source, "target": c.target,
                  "weight": c.weight, "sign": c.sign,
@@ -554,18 +579,10 @@ class NeuralCircuit(BaseModel):
             },
             "time_step": self.time_step,
         }
-        save_path.write_text(json.dumps(data, indent=2))
 
-    def load(self, path: Optional[str] = None):
-        """Load persisted circuit state."""
-        load_path = Path(path) if path else Path.home() / ".sparks" / "circuit.json"
-        if not load_path.exists():
-            return False
-
+    def _from_dict(self, data: dict) -> bool:
+        """Restore circuit state from dict."""
         try:
-            data = json.loads(load_path.read_text())
-
-            # Restore connection weights
             saved_conns = {(c["source"], c["target"]): c for c in data.get("connections", [])}
             for conn in self.connections:
                 key = (conn.source, conn.target)
@@ -573,12 +590,10 @@ class NeuralCircuit(BaseModel):
                     conn.weight = saved_conns[key]["weight"]
                     conn.plasticity = saved_conns[key].get("plasticity", True)
 
-            # Restore baselines
             for name, baseline in data.get("baselines", {}).items():
                 if name in self.populations:
                     self.populations[name].baseline = baseline
 
-            # Restore modulators
             mods = data.get("modulators", {})
             self.dopamine = mods.get("dopamine", 0.0)
             self.norepinephrine = mods.get("norepinephrine", 0.5)
@@ -588,6 +603,112 @@ class NeuralCircuit(BaseModel):
             return True
         except Exception:
             return False
+
+    def save(self, path: Optional[str] = None, domain: Optional[str] = None):
+        """Save circuit state. If domain given, save domain-specific snapshot too."""
+        # Save to default path (backward compat)
+        save_path = Path(path) if path else Path.home() / ".sparks" / "circuit.json"
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        data = self._to_dict()
+        save_path.write_text(json.dumps(data, indent=2))
+
+        # Save domain-specific snapshot
+        if domain:
+            domain_dir = self._circuit_dir()
+            domain_dir.mkdir(parents=True, exist_ok=True)
+            domain_path = domain_dir / f"{_sanitize(domain)}.json"
+            # Keep backup of previous snapshot for rollback
+            if domain_path.exists():
+                backup_path = domain_dir / f"{_sanitize(domain)}.backup.json"
+                backup_path.write_text(domain_path.read_text())
+            domain_path.write_text(json.dumps(data, indent=2))
+
+    def load(self, path: Optional[str] = None, domain: Optional[str] = None):
+        """Load circuit state. Prefers domain-specific if available."""
+        # Try domain-specific first
+        if domain:
+            domain_path = self._circuit_dir() / f"{_sanitize(domain)}.json"
+            if domain_path.exists():
+                try:
+                    data = json.loads(domain_path.read_text())
+                    return self._from_dict(data)
+                except Exception:
+                    pass
+
+        # Fall back to default
+        load_path = Path(path) if path else Path.home() / ".sparks" / "circuit.json"
+        if not load_path.exists():
+            return False
+        try:
+            data = json.loads(load_path.read_text())
+            return self._from_dict(data)
+        except Exception:
+            return False
+
+    def rollback(self, domain: str) -> bool:
+        """Rollback to previous domain snapshot."""
+        backup_path = self._circuit_dir() / f"{_sanitize(domain)}.backup.json"
+        if not backup_path.exists():
+            return False
+        try:
+            data = json.loads(backup_path.read_text())
+            self._from_dict(data)
+            # Overwrite current with backup
+            domain_path = self._circuit_dir() / f"{_sanitize(domain)}.json"
+            domain_path.write_text(backup_path.read_text())
+            return True
+        except Exception:
+            return False
+
+    def detect_drift(self, domain: Optional[str] = None) -> dict:
+        """Detect weight drift from initial values.
+
+        Returns dict with drift statistics. High drift may indicate
+        contamination from a different domain.
+        """
+        # Compare current weights against a fresh circuit
+        fresh = NeuralCircuit()
+        fresh_conns = {(c.source, c.target): c.weight for c in fresh.connections}
+
+        drifts = []
+        for conn in self.connections:
+            key = (conn.source, conn.target)
+            if key in fresh_conns:
+                drifts.append(abs(conn.weight - fresh_conns[key]))
+
+        if not drifts:
+            return {"mean_drift": 0, "max_drift": 0, "anomalous": False}
+
+        mean_drift = sum(drifts) / len(drifts)
+        max_drift = max(drifts)
+        # Anomaly: mean drift > 0.3 or any single connection drifted > 0.7
+        anomalous = mean_drift > 0.3 or max_drift > 0.7
+
+        return {
+            "mean_drift": round(mean_drift, 4),
+            "max_drift": round(max_drift, 4),
+            "n_connections": len(drifts),
+            "anomalous": anomalous,
+            "domain": domain,
+        }
+
+    def reset(self):
+        """Reset all weights and baselines to initial values."""
+        self.connections = []
+        self._init_connections()
+        for name in self.populations:
+            self.populations[name].baseline = 0.1 if name in TOOLS else 0.0
+            self.populations[name].rate = 0.0
+            self.populations[name].refractory = 0.0
+        self.dopamine = 0.0
+        self.norepinephrine = 0.5
+        self.acetylcholine = 0.5
+        self.time_step = 0
+
+
+def _sanitize(name: str) -> str:
+    """Sanitize domain name for filename."""
+    return "".join(c if c.isalnum() or c in "-_" else "_" for c in name.lower()).strip("_")[:50]
 
     # ─── Debug ───
 

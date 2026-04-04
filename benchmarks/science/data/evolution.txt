@@ -1,0 +1,23 @@
+Natural selection acts on phenotypic variation within populations.
+Mutations are the ultimate source of genetic variation.
+Genetic drift has stronger effects in small populations.
+Gene flow between populations reduces genetic differentiation.
+Sexual selection can drive evolution of traits that reduce survival (e.g., peacock tails).
+Adaptation is the process by which populations become better suited to their environment.
+Convergent evolution produces similar traits in unrelated species (e.g., wings in bats and birds).
+Divergent evolution leads to different traits from a common ancestor (adaptive radiation).
+Coevolution occurs when two species reciprocally affect each other's evolution.
+Speciation can occur through geographic isolation (allopatric) or within a population (sympatric).
+The fossil record shows patterns of punctuated equilibrium — long stasis interrupted by rapid change.
+Horizontal gene transfer is common in prokaryotes, complicating phylogenetic trees.
+Endosymbiosis explains the origin of mitochondria and chloroplasts.
+Molecular clocks use mutation rates to estimate divergence times.
+Neutral theory argues most molecular evolution is driven by drift, not selection.
+Evolutionary arms races between predators and prey drive rapid adaptation.
+Kin selection explains altruistic behavior through inclusive fitness.
+The Red Queen hypothesis suggests species must constantly evolve to maintain fitness relative to competitors.
+Mass extinctions create ecological vacuums that allow surviving groups to diversify.
+Epigenetic inheritance can transmit environmental effects across generations without DNA changes.
+Developmental constraints limit the range of possible evolutionary outcomes.
+Sexual dimorphism reflects different selection pressures on males and females.
+Balancing selection maintains genetic polymorphism in populations (e.g., sickle cell trait).

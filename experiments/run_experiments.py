@@ -98,6 +98,48 @@ def run_all(data_path: str, output_dir: str = "experiments/results"):
         print(f"  ERROR: {e}")
 
     # ════════════════════════════════════════
+    # Experiment 2b: Neuromodulator Ablation
+    # ════════════════════════════════════════
+    print("\n" + "="*60)
+    print("EXPERIMENT 2b: Neuromodulator Ablation")
+    print("="*60)
+
+    ablation_configs = {
+        "no_dopamine":       {"ablate_dopamine": True},
+        "no_norepinephrine": {"ablate_norepinephrine": True},
+        "no_acetylcholine":  {"ablate_acetylcholine": True},
+        "no_stdp":           {"ablate_stdp": True},
+        "no_homeostatic":    {"ablate_homeostatic": True},
+    }
+
+    for name, ablate_flags in ablation_configs.items():
+        print(f"\n--- {name} ---")
+        set_seed(42)
+        try:
+            from sparks.autonomic import run_autonomic
+            start = time.time()
+            result = run_autonomic(
+                goal="Extract the core principles from this data",
+                data_path=data_path, depth="quick",
+                ablate=ablate_flags,
+            )
+            elapsed = time.time() - start
+
+            results[f"ablation_{name}"] = {
+                "n_principles": len(result.principles),
+                "confidence": result.confidence,
+                "coverage": result.coverage,
+                "cost": result.total_cost,
+                "time": elapsed,
+                "ablated": list(ablate_flags.keys()),
+                "principles": [{"statement": p.statement, "confidence": p.confidence} for p in result.principles],
+            }
+            print(f"  {name}: {len(result.principles)} principles, {result.confidence:.0%}, ${result.total_cost:.2f}")
+        except Exception as e:
+            results[f"ablation_{name}"] = {"error": str(e), "ablated": list(ablate_flags.keys())}
+            print(f"  ERROR: {e}")
+
+    # ════════════════════════════════════════
     # Experiment 3: Baseline (vanilla LLM)
     # ════════════════════════════════════════
     print("\n" + "="*60)
@@ -214,7 +256,8 @@ Respond with clear, numbered principles.""",
     print(f"\n{'Experiment':<25} {'Principles':<12} {'Confidence':<12} {'Cost':<10}")
     print("-"*60)
 
-    for key in ["depth_quick", "depth_standard", "circuit_on", "circuit_off", "baseline"]:
+    ablation_keys = [f"ablation_{name}" for name in ablation_configs]
+    for key in ["depth_quick", "depth_standard", "circuit_on", "circuit_off"] + ablation_keys + ["baseline"]:
         r = results.get(key, {})
         if "error" in r:
             print(f"{key:<25} ERROR")

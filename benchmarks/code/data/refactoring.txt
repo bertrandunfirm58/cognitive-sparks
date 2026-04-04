@@ -1,0 +1,24 @@
+Code smells indicate design problems that may need refactoring.
+Long methods violate the Single Responsibility Principle — extract smaller methods.
+God classes do too much — split into focused, cohesive classes.
+Feature envy: a method uses more data from another class than its own.
+Shotgun surgery: a single change requires editing many classes.
+Divergent change: one class is modified for multiple unrelated reasons.
+Primitive obsession: using primitives instead of small value objects.
+Data clumps: groups of data that appear together should become their own class.
+Switch statements on type codes suggest polymorphism is needed.
+Parallel inheritance hierarchies: adding a subclass in one hierarchy requires adding in another.
+Speculative generality: designing for hypothetical future needs adds unnecessary complexity.
+Dead code should be deleted, not commented out — version control remembers.
+Temporary fields that are only set in certain circumstances indicate missing objects.
+Message chains (a.getB().getC().getD()) violate the Law of Demeter.
+Middle man: a class that delegates everything should be removed.
+Extract method is the most common refactoring — improves readability and reuse.
+Rename variable/method/class is the cheapest high-impact refactoring.
+Replace conditional with polymorphism eliminates complex branching logic.
+Introduce parameter object groups related parameters into a single object.
+Replace magic numbers with named constants improves readability.
+Guard clauses flatten deeply nested conditionals.
+Compose method: transform a long method into a sequence of well-named steps.
+Move method/field to the class that uses it most.
+The boy scout rule: leave code cleaner than you found it.

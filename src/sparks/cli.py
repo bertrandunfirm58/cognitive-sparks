@@ -24,6 +24,7 @@ def run(
     output: str = typer.Option("", "--output", "-o", help="Output file path (default: stdout + ./output/)"),
     no_nervous: bool = typer.Option(False, "--no-nervous", help="Ablation: disable biological nervous system"),
     seed: Optional[int] = typer.Option(None, "--seed", help="Random seed for reproducibility"),
+    reset_weights: bool = typer.Option(False, "--reset-weights", help="Reset circuit weights to initial values"),
 ):
     """Analyze data using 13 cognitive thinking tools."""
     from sparks.engine import run as engine_run
@@ -33,6 +34,13 @@ def run(
         from sparks.research import set_seed
         set_seed(seed)
         console.print(f"[dim]Seed: {seed}[/]")
+
+    if reset_weights:
+        from sparks.circuit import NeuralCircuit
+        c = NeuralCircuit()
+        c.reset()
+        c.save()
+        console.print("[yellow]Circuit weights reset to initial values[/]")
 
     if depth not in ("quick", "standard", "deep"):
         console.print(f"[red]Invalid depth: {depth}. Use quick/standard/deep.[/]")
@@ -195,6 +203,45 @@ def optimize(
     """Self-optimize: analyze output quality, fix prompts, tune circuit."""
     from sparks.self_optimize import self_optimize
     self_optimize(output_path=output, apply=apply)
+
+
+@app.command()
+def trace(
+    path: str = typer.Option("", "--path", "-p", help="Path to trace JSON (default: latest)"),
+):
+    """View the explainability trace of a cascade run."""
+    import json
+
+    if path:
+        trace_path = Path(path)
+    else:
+        # Find latest trace
+        trace_dir = Path.home() / ".sparks" / "traces"
+        if not trace_dir.exists():
+            console.print("[red]No traces found. Run 'sparks run' first.[/]")
+            raise typer.Exit(1)
+        traces = sorted(trace_dir.glob("trace_*.json"), key=lambda p: p.stat().st_mtime)
+        if not traces:
+            console.print("[red]No traces found.[/]")
+            raise typer.Exit(1)
+        trace_path = traces[-1]
+
+    data = json.loads(trace_path.read_text())
+    console.print(f"\n[bold cyan]⚡ Cascade Trace[/] ({trace_path.name})")
+    console.print(f"Total firings: {data['total_firings']} | Terminated: {data['termination']}\n")
+
+    for f in data["firings"]:
+        mode_icon = {"sympathetic": "🔴", "parasympathetic": "🔵", "balanced": "⚪"}.get(f.get("mode", ""), "⚪")
+        console.print(f"{mode_icon} [{f['step']:2d}] [bold]{f['tool']}[/] (act={f['activation']:.2f}, {f['mode']})")
+        console.print(f"     {f['summary']}")
+        drivers = ", ".join(f"{d['source']}({d['contribution']:+.2f})" for d in f["top_drivers"][:4])
+        console.print(f"     [dim]drivers: {drivers}[/]")
+        if f.get("runner_up"):
+            console.print(f"     [dim]runner-up: {f['runner_up']}[/]")
+        console.print()
+
+    if data.get("consolidation_at"):
+        console.print(f"[dim]Consolidation at steps: {data['consolidation_at']}[/]")
 
 
 @app.command()

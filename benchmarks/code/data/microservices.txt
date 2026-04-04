@@ -1,0 +1,24 @@
+Microservices decompose a monolith into independently deployable services.
+Each service owns its own data store — no shared databases.
+Services communicate via APIs (REST, gRPC) or async messaging (Kafka, RabbitMQ).
+Network latency replaces in-process function calls — 1000x slower.
+Circuit breakers prevent cascading failures when a downstream service is unavailable.
+Service discovery (Consul, Eureka) lets services find each other dynamically.
+API gateways aggregate multiple service calls into a single client request.
+Distributed tracing (Jaeger, Zipkin) is essential for debugging cross-service requests.
+Each service can use different programming languages and frameworks (polyglot).
+Deployment independence means teams can ship changes without coordinating releases.
+Data consistency becomes eventual — SAGA patterns replace ACID transactions.
+Service mesh (Istio, Linkerd) handles cross-cutting concerns (TLS, retry, observability).
+Container orchestration (Kubernetes) manages service lifecycle at scale.
+Blue-green and canary deployments enable zero-downtime releases.
+Health checks and readiness probes prevent routing traffic to unhealthy instances.
+Rate limiting protects services from being overwhelmed by upstream traffic.
+Idempotency keys ensure safe retries for non-idempotent operations.
+Log aggregation (ELK, Loki) centralizes logs from all services.
+Config management (Consul, Vault) externalizes configuration from code.
+Testing requires contract tests (Pact) in addition to unit and integration tests.
+The CAP theorem constrains distributed data stores: pick 2 of consistency, availability, partition tolerance.
+Conway's Law: the system architecture mirrors the communication structure of the organization.
+Strangler fig pattern enables incremental migration from monolith to microservices.
+Event sourcing stores all state changes as an immutable log of events.
