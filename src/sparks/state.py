@@ -248,7 +248,7 @@ class NervousSignals(BaseModel):
 
     # ── Oscillation groups ──
     rhythm_groups: dict[str, list[str]] = {
-        "sensory": ["observe", "empathize", "shift_dimension"],   # theta-like: intake
+        "sensory": ["observe", "body_think", "empathize", "shift_dimension"],   # theta-like: intake
         "processing": ["recognize_patterns", "form_patterns", "transform"],  # beta-like: analysis
         "integration": ["abstract", "analogize", "model", "synthesize"],  # gamma-like: binding
         "exploration": ["play", "imagine"],  # alpha-like: open/creative
@@ -301,6 +301,11 @@ class CognitiveState(BaseModel):
     analogies: list[Analogy] = []
     contradictions: list[Contradiction] = []
     model_results: list[ModelResult] = []
+
+    # Extended tool outputs
+    hypotheses: list[Hypothesis] = []
+    perspective_insights: list[PerspectiveInsight] = []
+    play_discoveries: list[PlayDiscovery] = []
 
     # Layer 2
     forgotten_rounds: list[int] = []

@@ -33,12 +33,19 @@ class ObserveTool(BaseTool):
         if not data or not state.lens:
             return
 
-        chunks = data.chunks(max_chars=24000)
+        chunks = data.chunks(max_chars=200000)
 
         # Get adaptive hint if available
         tool_hint = ""
         if hasattr(state, '_tool_hints') and "observe" in state._tool_hints:
             tool_hint = state._tool_hints["observe"].get("hint", "")
+
+        # Predictive coding: in Phase 2+, tell observer what was found before
+        prediction_hint = ""
+        if hasattr(state, '_predictions') and state._predictions:
+            prediction_hint = "\n## Previous Round Findings (look for SURPRISES vs these)\n" + \
+                "\n".join(f"- {p}" for p in state._predictions[:5]) + \
+                "\n\nFocus on what CONTRADICTS or is MISSING from the above. Surprises > confirmations."
 
         for i, chunk in enumerate(chunks):
             prompt = f"""You are an expert observer. Your job is to OBSERVE, not interpret.
@@ -63,6 +70,8 @@ Domain: {state.lens.domain}
 ## Data (chunk {i+1}/{len(chunks)})
 {chunk}
 
+{prediction_hint}
+
 ## Instructions
 Observe through EACH channel. Record what you see — facts, not interpretations.
 For each observation:
@@ -79,7 +88,7 @@ No threshold filters. Everything matters. The mundane can be significant."""
                 schema=ObservationBatch,
                 tool="observe",
                 tracker=self.tracker,
-                max_tokens=4096,
+                max_tokens=16000,
             )
 
             for obs_data in result.observations:

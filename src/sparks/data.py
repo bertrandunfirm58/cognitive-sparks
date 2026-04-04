@@ -73,7 +73,7 @@ class DataStore:
 
         return chunks
 
-    def all_text(self, max_chars: int = 100000) -> str:
+    def all_text(self, max_chars: int = 700000) -> str:
         """All data as single string, truncated if needed."""
         parts = []
         total = 0

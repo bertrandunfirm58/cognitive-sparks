@@ -109,16 +109,30 @@ The principles should be:
             schema=SynthesisResult,
             tool="synthesize",
             tracker=self.tracker,
-            max_tokens=4096,
+            max_tokens=8192,
         )
 
-        # Update state principles with refined versions
+        # Update state principles with refined versions, keep unmatched new ones
+        matched_indices = set()
         for fp in result.final_principles:
-            for p in state.principles:
-                if _similar_enough(p.statement, fp.get("statement", "")):
+            found = False
+            for i, p in enumerate(state.principles):
+                if i not in matched_indices and _similar_enough(p.statement, fp.get("statement", "")):
                     p.statement = fp["statement"]
                     p.confidence = fp.get("confidence", p.confidence)
+                    matched_indices.add(i)
+                    found = True
                     break
+            if not found and fp.get("statement"):
+                # New principle from synthesis — add it
+                from sparks.state import Principle
+                import uuid
+                state.principles.append(Principle(
+                    id=f"syn_{uuid.uuid4().hex[:8]}",
+                    statement=fp["statement"],
+                    confidence=fp.get("confidence", 0.7),
+                    round_extracted=state.round,
+                ))
 
         output = SynthesisOutput(
             principles=state.principles,
@@ -154,4 +168,4 @@ def _similar_enough(a: str, b: str) -> bool:
     if not a_words or not b_words:
         return False
     overlap = len(a_words & b_words) / min(len(a_words), len(b_words))
-    return overlap > 0.3
+    return overlap > 0.5

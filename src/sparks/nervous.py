@@ -62,7 +62,7 @@ def sense(state: CognitiveState) -> NervousSignals:
     # ─── 2. Contradiction: accumulate from unresolved conflicts ───
     unresolved = sum(1 for c in state.contradictions if not c.resolved)
     if unresolved > 0:
-        signals.contradiction_potential.contribute(0.3 * unresolved)
+        signals.contradiction_potential.contribute(0.3 * min(unresolved, 3))
     else:
         signals.contradiction_potential.contribute(-0.2)  # inhibition: no contradictions
 
@@ -80,17 +80,17 @@ def sense(state: CognitiveState) -> NervousSignals:
         if m.failures:
             signals.anomaly_potential.contribute(0.2 * len(m.failures))
 
-    # ─── 5. Sufficient depth: requires convergence + principles ───
-    if signals.convergence_potential.fired and len(state.principles) >= 1:
-        signals.sufficient_potential.contribute(0.5)
-    if state.round >= 2:
-        signals.sufficient_potential.contribute(0.1)  # time pressure
-
-    # ─── Fire all potentials (threshold check) ───
+    # ─── Fire potentials 1-4 BEFORE using their state ───
     signals.convergence_potential.check_fire()
     signals.contradiction_potential.check_fire()
     signals.diminishing_potential.check_fire()
     signals.anomaly_potential.check_fire()
+
+    # ─── 5. Sufficient depth: requires convergence (now current) + principles ───
+    if signals.convergence_potential.fired and len(state.principles) >= 1:
+        signals.sufficient_potential.contribute(0.5)
+    if state.round >= 2:
+        signals.sufficient_potential.contribute(0.1)  # time pressure
     signals.sufficient_potential.check_fire()
 
     # ─── 6. Habituation: repeated pattern types lose weight ───
@@ -102,7 +102,7 @@ def sense(state: CognitiveState) -> NervousSignals:
     # ─── 7. Sensitization: anomaly boosts related channel sensitivity ───
     # (applied in observe tool via state.signals.anomaly)
 
-    # ─── 8. Neuromodulation ───
+    # ─── 8. Neuromodulation (AFTER check_fire so .fired is current) ───
     _update_neuromodulators(state, signals)
 
     # ─── 9. Autonomic mode ───
@@ -169,10 +169,14 @@ def _update_autonomic_mode(state: CognitiveState, signals: NervousSignals):
 
     # Vagal tone = how easily the system switches modes
     # High vagal tone = flexible, healthy
-    mode_switches = getattr(state, '_mode_history', [])
-    if len(mode_switches) >= 2:
-        recent_changes = sum(1 for i in range(1, min(5, len(mode_switches))) if mode_switches[-i] != mode_switches[-i+1] if i < len(mode_switches))
-        auto.vagal_tone = min(1.0, recent_changes * 0.2 + 0.3)
+    if not hasattr(state, '_mode_history'):
+        state._mode_history = []
+    state._mode_history.append(auto.mode)
+    history = state._mode_history
+    if len(history) >= 2:
+        recent = history[-min(5, len(history)):]
+        changes = sum(1 for i in range(1, len(recent)) if recent[i] != recent[i - 1])
+        auto.vagal_tone = min(1.0, changes * 0.2 + 0.3)
 
 
 # ─── Homeostasis ───
@@ -362,21 +366,22 @@ def check_feedback_needed(state: CognitiveState) -> list[str]:
     Like cortex feedback: higher area tells lower area "look again at this".
     """
     reactivate = []
+    fired = state.signals.last_fired
 
     # If model failed → re-observe the failure areas
     for m in state.model_results:
-        if m.failures and "observe" not in state.signals.last_fired[-2:]:
+        if m.failures and (not fired or "observe" not in fired[-2:]):
             reactivate.append("observe")
             break
 
     # If abstract produced too few principles → need more patterns
     if state.principles and len(state.principles) < 2:
-        if "recognize_patterns" not in state.signals.last_fired[-2:]:
+        if not fired or "recognize_patterns" not in fired[-2:]:
             reactivate.append("recognize_patterns")
 
     # If contradictions found → analogize might help resolve
     if state.contradictions and any(not c.resolved for c in state.contradictions):
-        if "analogize" not in state.signals.last_fired[-3:]:
+        if not fired or "analogize" not in fired[-3:]:
             reactivate.append("analogize")
 
     return reactivate
@@ -396,12 +401,12 @@ def consolidate(state: CognitiveState):
     """
     signals = state.signals
 
-    # 1. Synapse replay: strengthen connections that led to principles
-    for p in state.principles:
-        for pat_id in p.supporting_patterns:
-            # The observe→patterns→abstract chain was successful
-            for key in ["observe→recognize_patterns", "recognize_patterns→abstract"]:
-                signals.synapses[key] = min(2.0, signals.synapses.get(key, 1.0) + 0.1)
+    # 1. Synapse replay: strengthen connections that actually fired this round
+    fired = signals.last_fired
+    if fired and state.principles:
+        for i in range(len(fired) - 1):
+            key = f"{fired[i]}→{fired[i + 1]}"
+            signals.synapses[key] = min(2.0, signals.synapses.get(key, 1.0) + 0.05)
 
     # 2. Prune low-confidence observations (metabolic waste cleanup)
     before = len(state.observations)
@@ -415,7 +420,7 @@ def consolidate(state: CognitiveState):
     seen_descriptions = {}
     unique_patterns = []
     for p in state.patterns:
-        key = p.description[:50].lower()
+        key = p.description.lower().strip()
         if key not in seen_descriptions:
             seen_descriptions[key] = p
             unique_patterns.append(p)

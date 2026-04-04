@@ -88,12 +88,12 @@ class KnowledgeBase:
 
     def _load(self):
         if self.path.exists():
-            try:
-                for line in self.path.read_text().strip().split("\n"):
-                    if line.strip():
+            for line in self.path.read_text().strip().split("\n"):
+                if line.strip():
+                    try:
                         self.entries.append(KnowledgeEntry.model_validate_json(line))
-            except Exception:
-                self.entries = []
+                    except Exception:
+                        continue  # skip corrupted lines, preserve others
 
     def save_run(self, domain: str, goal: str, principles: list, analogies: list = None,
                  patterns_summary: str = "", score: float = 0.0):

@@ -20,13 +20,22 @@ _HAIKU = "claude-haiku-4-5-20251001"
 _ALL_OPUS = _os.environ.get("SPARKS_ALL_OPUS", "") == "1"
 
 MODEL_ROUTING: dict[str, str] = {
+    # Priority 1 (core)
     "observe": _OPUS if _ALL_OPUS else _HAIKU,
     "recognize_patterns": _OPUS if _ALL_OPUS else _HAIKU,
-    "form_patterns": _OPUS if _ALL_OPUS else _HAIKU,
     "abstract": _OPUS if _ALL_OPUS else _SONNET,
+    "synthesize": _OPUS if _ALL_OPUS else _SONNET,
+    # Priority 2 (enrichment)
+    "form_patterns": _OPUS if _ALL_OPUS else _HAIKU,
     "analogize": _OPUS if _ALL_OPUS else _SONNET,
     "model": _OPUS if _ALL_OPUS else _HAIKU,
-    "synthesize": _OPUS if _ALL_OPUS else _SONNET,
+    # Priority 3 (deep exploration)
+    "imagine": _OPUS if _ALL_OPUS else _SONNET,
+    "body_think": _OPUS if _ALL_OPUS else _HAIKU,
+    "empathize": _OPUS if _ALL_OPUS else _SONNET,
+    "shift_dimension": _OPUS if _ALL_OPUS else _HAIKU,
+    "play": _OPUS if _ALL_OPUS else _SONNET,
+    "transform": _OPUS if _ALL_OPUS else _HAIKU,
     # Infrastructure
     "lens_generate": _OPUS if _ALL_OPUS else _SONNET,
     "quick_scan": _OPUS if _ALL_OPUS else _HAIKU,
@@ -42,6 +51,7 @@ TOOL_PRIORITY: dict[str, int] = {
     "analogize": 2,
     "model": 2,
     "imagine": 3,
+    "body_think": 3,
     "empathize": 3,
     "shift_dimension": 3,
     "play": 3,
@@ -97,8 +107,12 @@ class CostTracker:
         return self.remaining() >= est
 
     def select_model(self, tool: str) -> str:
-        preferred = MODEL_ROUTING.get(tool, "claude-sonnet-4-20250514")
+        # Check adaptive overrides first
+        overrides = getattr(self, '_routing_overrides', {})
+        preferred = overrides.get(tool) or MODEL_ROUTING.get(tool, "claude-sonnet-4-20250514")
         if not self.can_afford(preferred):
+            if not self.can_afford("claude-haiku-4-5-20251001"):
+                return preferred  # budget exhausted, try anyway
             return "claude-haiku-4-5-20251001"
         return preferred
 

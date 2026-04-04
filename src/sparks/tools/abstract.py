@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from sparks.context import tool_context
 from sparks.llm import llm_structured
-from sparks.state import CognitiveState, Principle, Evidence
+from sparks.state import CognitiveState, Principle, Evidence, Phase
 from sparks.tools.base import BaseTool
 
 
@@ -36,10 +36,10 @@ class AbstractTool(BaseTool):
     name = "abstract"
 
     def should_run(self, state: CognitiveState) -> bool:
-        """Run if patterns exist but no principles yet, or patterns grew significantly."""
-        if len(state.patterns) >= 3 and len(state.principles) == 0:
-            return True
-        return False
+        """Run if patterns exist. Phase 1: need principles. Phase 2+: re-abstract."""
+        if len(state.patterns) < 3:
+            return False
+        return len(state.principles) == 0 or state.phase != Phase.SEQUENTIAL
 
     def run(self, state: CognitiveState, **kwargs):
         if not state.patterns:
@@ -65,8 +65,8 @@ class AbstractTool(BaseTool):
                 "\n".join(f"- {f}" for f in model_failures[:10])
 
         for round_num in range(max_rounds):
-            if len(candidates) <= 3:
-                break  # Can't reduce below 3
+            if len(candidates) <= 2:
+                break  # Hard minimum
 
             candidates_text = "\n".join(
                 f"{i+1}. [{c['confidence']:.0%}] {c['statement']}"
@@ -111,16 +111,24 @@ Also indicate: can we reduce further? (false if removing anything would lose ess
                 tracker=self.tracker,
             )
 
-            # Update candidates for next round
-            candidates = [
-                {
+            # Update candidates for next round, accumulating all pattern IDs
+            prev_pattern_ids = {c["statement"][:30]: c.get("all_pattern_ids", [c.get("pattern_id", "")]) for c in candidates}
+            new_candidates = []
+            for p in result.remaining_principles:
+                # Find best match from previous candidates to inherit IDs
+                inherited_ids = []
+                for prev_stmt, prev_ids in prev_pattern_ids.items():
+                    if prev_stmt and any(word in p.statement.lower() for word in prev_stmt.lower().split()[:3]):
+                        inherited_ids.extend(prev_ids)
+                all_ids = list(set(inherited_ids + p.supporting_patterns))
+                new_candidates.append({
                     "statement": p.statement,
-                    "pattern_id": p.supporting_patterns[0] if p.supporting_patterns else "",
+                    "pattern_id": all_ids[0] if all_ids else "",
                     "confidence": p.confidence,
-                    "supporting_patterns": p.supporting_patterns,
-                }
-                for p in result.remaining_principles
-            ]
+                    "supporting_patterns": all_ids,
+                    "all_pattern_ids": all_ids,
+                })
+            candidates = new_candidates
 
             if not result.can_reduce_further:
                 break

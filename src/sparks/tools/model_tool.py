@@ -47,7 +47,7 @@ class ModelTool(BaseTool):
         if data:
             sample = data.sample(ratio=0.2, min_n=2, max_n=5)
             sample_text = "\n\n".join(
-                f"[{s['file']}]: {s['content'][:1500]}" for s in sample
+                f"[{s['file']}]: {s['content'][:8000]}" for s in sample
             )
 
         prompt = f"""You are building a CARDBOARD MODEL — quick, rough, meant to break.

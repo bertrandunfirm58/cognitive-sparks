@@ -8,11 +8,17 @@ from sparks.state import CognitiveState
 # What each tool needs as full data vs. summary
 TOOL_DATA_NEEDS: dict[str, dict[str, list[str]]] = {
     "observe": {"full": ["lens"], "summary": ["patterns", "principles"]},
-    "recognize_patterns": {"full": ["observations"], "summary": ["principles"]},
+    "imagine": {"full": ["principles"], "summary": ["patterns", "contradictions"]},
+    "recognize_patterns": {"full": ["observations", "patterns"], "summary": ["principles"]},
     "form_patterns": {"full": ["patterns"], "summary": ["observations"]},
     "abstract": {"full": ["patterns"], "summary": ["principles", "model_results"]},
     "analogize": {"full": ["principles"], "summary": ["patterns"]},
+    "body_think": {"full": ["observations"], "summary": ["patterns"]},
+    "empathize": {"full": ["patterns"], "summary": ["principles", "observations"]},
+    "shift_dimension": {"full": ["observations", "patterns"], "summary": ["principles"]},
     "model": {"full": ["principles", "analogies"], "summary": ["patterns"]},
+    "play": {"full": ["principles", "contradictions"], "summary": ["patterns"]},
+    "transform": {"full": ["principles", "patterns"], "summary": ["observations"]},
     "synthesize": {"full": ["principles", "contradictions", "analogies", "model_results"], "summary": ["observations", "patterns"]},
 }
 

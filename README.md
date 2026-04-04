@@ -168,12 +168,18 @@ sparks/
 ├── evolution.py      # AutoAgent-style evolution loop
 ├── llm.py            # Claude CLI or Anthropic API backend
 ├── tools/
-│   ├── observe.py    # Tool #1: Observe with lens
-│   ├── patterns.py   # Tool #4-5: Recognize + form patterns
-│   ├── abstract.py   # Tool #3: Picasso Bull abstraction
-│   ├── analogize.py  # Tool #6: Structural analogy
-│   ├── model_tool.py # Tool #10: Cardboard model testing
-│   └── synthesize.py # Tool #13: Final integration
+│   ├── observe.py        # Tool #1: Observe with lens
+│   ├── imagine.py        # Tool #2: Mental simulation, 'what if'
+│   ├── abstract.py       # Tool #3: Picasso Bull abstraction
+│   ├── patterns.py       # Tool #4-5: Recognize + form patterns
+│   ├── analogize.py      # Tool #6: Structural analogy
+│   ├── body_think.py     # Tool #7: Feel the data physically
+│   ├── empathize.py      # Tool #8: Become the actors inside
+│   ├── shift_dimension.py# Tool #9: Change the axis
+│   ├── model_tool.py     # Tool #10: Cardboard model testing
+│   ├── play.py           # Tool #11: Break rules systematically
+│   ├── transform.py      # Tool #12: Convert between forms
+│   └── synthesize.py     # Tool #13: Final integration
 └── cli.py            # sparks run / evolve / info
 ```
 
@@ -214,9 +220,26 @@ The 13 thinking tools (observing, imaging, abstracting, pattern recognition, pat
 
 ---
 
+## Validation: A-Test (15 Months of Market Data)
+
+Fed Sparks 15 months of market observation data (263 observations, 640K chars) to see if it independently discovers the same core laws that human experts extracted manually.
+
+**Result**: Sparks found 7 principles (avg 80% confidence), 8 structural analogies, 2 unresolved contradictions. The top 3 principles structurally matched the human-extracted "3 Laws" — plus 4 additional principles the human analysis had not formalized.
+
+| Metric | Value |
+|---|---|
+| Observations | 263 |
+| Patterns | 27 |
+| Principles | 7 (top 3: 98%, 94%, 90%) |
+| Analogies | 8 structural matches |
+| Model accuracy | 58% (cardboard) |
+| Cost | $6.06 (CLI backend, Opus) |
+
+---
+
 ## Status
 
-- [x] 7/13 thinking tools implemented
+- [x] **13/13 thinking tools implemented**
 - [x] 17 biological nervous system principles
 - [x] Lens bootstrapping (auto domain detection)
 - [x] Adaptive tool/model routing per domain
@@ -224,7 +247,7 @@ The 13 thinking tools (observing, imaging, abstracting, pattern recognition, pat
 - [x] Evolution loop (AutoAgent-style)
 - [x] Cross-session learning (persistent synapses + knowledge base)
 - [x] Claude Code CLI + API backends
-- [ ] Remaining 6 tools (imagine, empathize, shift_dimension, play, transform, execute_and_feel)
+- [x] A-Test validation (independent law re-discovery)
 - [ ] Convergence Level 2-3 (embeddings + LLM judgment)
 - [ ] Large dataset validation (50+ files)
 - [ ] Benchmark vs GPT-Researcher

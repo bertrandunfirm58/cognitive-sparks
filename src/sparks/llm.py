@@ -43,14 +43,16 @@ def llm_call(
     cli_model = MODEL_MAP.get(model, "sonnet")
 
     result = subprocess.run(
-        ["claude", "-p", full_prompt, "--model", cli_model, "--output-format", "text"],
+        ["claude", "-p", "--model", cli_model, "--output-format", "text"],
+        input=full_prompt,
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=600,
     )
 
     if result.returncode != 0:
-        raise RuntimeError(f"Claude CLI failed: {result.stderr[:500]}")
+        err = result.stderr[:500] or result.stdout[:500]
+        raise RuntimeError(f"Claude CLI failed (rc={result.returncode}): {err}")
 
     text = result.stdout.strip()
 
@@ -95,15 +97,19 @@ Schema:
     try:
         data = json.loads(json_str)
         return schema.model_validate(data)
-    except (json.JSONDecodeError, Exception) as e:
+    except Exception:
         # Retry with stricter prompt
         retry_prompt = f"""The previous response was not valid JSON. Please respond with ONLY valid JSON, no other text.
 
 {json_prompt}"""
-        text2 = llm_call(retry_prompt, model=model, system=system, tool=f"{tool}_retry", tracker=tracker)
-        json_str2 = _extract_json(text2)
-        data2 = json.loads(json_str2)
-        return schema.model_validate(data2)
+        try:
+            text2 = llm_call(retry_prompt, model=model, system=system, tool=f"{tool}_retry", tracker=tracker)
+            json_str2 = _extract_json(text2)
+            data2 = json.loads(json_str2)
+            return schema.model_validate(data2)
+        except Exception:
+            # Return empty schema as last resort
+            return schema.model_validate({})
 
 
 def _extract_json(text: str) -> str:

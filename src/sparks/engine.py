@@ -25,11 +25,17 @@ console = Console()
 # Execution order for Phase 1 (sequential)
 TOOL_ORDER = [
     "observe",
+    "body_think",
+    "shift_dimension",
     "recognize_patterns",
     "form_patterns",
+    "empathize",
     "abstract",
     "analogize",
+    "imagine",
     "model",
+    "play",
+    "transform",
     "synthesize",
 ]
 
@@ -80,10 +86,14 @@ def run(goal: str, data_path: str, depth: str = "standard", nervous_system: bool
         configurator = ToolConfigurator()
         adaptive = configurator.configure(profile, domain, goal, depth, tracker=tracker)
 
-        updated_routing = apply_config(adaptive, MODEL_ROUTING)
-        for tool_name, model in updated_routing.items():
-            tracker._routing_overrides = getattr(tracker, '_routing_overrides', {})
-            tracker._routing_overrides[tool_name] = model
+        import os
+        if os.environ.get("SPARKS_ALL_OPUS") != "1":
+            updated_routing = apply_config(adaptive, MODEL_ROUTING)
+            for tool_name, model in updated_routing.items():
+                tracker._routing_overrides = getattr(tracker, '_routing_overrides', {})
+                tracker._routing_overrides[tool_name] = model
+        else:
+            console.print("   [dim]SPARKS_ALL_OPUS=1: skipping adaptive model overrides[/]")
 
         if adaptive.model_overrides:
             console.print(f"   [dim]Model overrides: {adaptive.model_overrides}[/]")
@@ -127,7 +137,10 @@ def run(goal: str, data_path: str, depth: str = "standard", nervous_system: bool
         # Store predictions for use in observe tool
         state._predictions = round1_predictions
 
-        output = _run_round(state, tools, data, tracker, "Phase 2")
+        phase2_output = _run_round(state, tools, data, tracker, "Phase 2")
+        # Keep Phase 2 output only if synthesize ran; otherwise preserve Phase 1
+        if phase2_output.principles:
+            output = phase2_output
 
         # Prediction error reporting
         surprising, predicted = filter_by_prediction(
@@ -149,11 +162,14 @@ def run(goal: str, data_path: str, depth: str = "standard", nervous_system: bool
     # ── Final stats ──
     state.signals.total_cost = tracker.total_cost
 
-    # Patch cost into output (CLI backend estimates, not exact)
+    # Ensure output has principles from state (in case synthesize was skipped)
+    if not output.principles and state.principles:
+        output.principles = state.principles
     output.total_cost = tracker.total_cost
     output.rounds_completed = state.round + 1
     output.tools_used = state.signals.active_tools
     output.contradictions = state.contradictions
+    output.analogies = output.analogies or state.analogies
 
     # Save session (synapses + knowledge base)
     memory.end_session(state, output)
@@ -221,8 +237,16 @@ def _run_round(
 
             try:
                 kwargs = {}
-                if name in ("observe", "model"):
+                if name in ("observe", "model", "body_think"):
                     kwargs["data"] = data
+
+                # Track counts before run for delta-based Hebbian learning
+                pre_counts = {
+                    "observations": len(state.observations),
+                    "patterns": len(state.patterns),
+                    "principles": len(state.principles),
+                    "analogies": len(state.analogies),
+                }
 
                 result = tool.run(state, **kwargs)
 
@@ -232,12 +256,12 @@ def _run_round(
                 cost_so_far = tracker.breakdown.get(name, 0)
                 progress.console.print(f"   {name}: ${cost_so_far:.3f}")
 
-                # Hebbian plasticity: record success based on state change
+                # Hebbian plasticity: delta-based success detection
                 had_new_output = (
-                    (name == "observe" and len(state.observations) > 0) or
-                    (name == "recognize_patterns" and len(state.patterns) > 0) or
-                    (name == "abstract" and len(state.principles) > 0) or
-                    (name == "analogize" and len(state.analogies) > 0) or
+                    (name == "observe" and len(state.observations) > pre_counts["observations"]) or
+                    (name == "recognize_patterns" and len(state.patterns) > pre_counts["patterns"]) or
+                    (name == "abstract" and len(state.principles) > pre_counts["principles"]) or
+                    (name == "analogize" and len(state.analogies) > pre_counts["analogies"]) or
                     (name == "synthesize" and result is not None)
                 )
                 update_synapses(state, name, success=had_new_output)
@@ -250,13 +274,13 @@ def _run_round(
 
     # ── Recurrent feedback: re-activate tools if needed ──
     feedback = check_feedback_needed(state)
-    if feedback and tracker.can_afford(tracker.select_model(feedback[0])):
+    if feedback:
         for fb_tool_name in feedback[:2]:  # max 2 re-activations
-            if fb_tool_name in tools:
+            if fb_tool_name in tools and tracker.can_afford(tracker.select_model(fb_tool_name)):
                 console.print(f"   [cyan]🔄 Feedback: re-activating {fb_tool_name}[/]")
                 try:
                     kwargs = {}
-                    if fb_tool_name in ("observe", "model"):
+                    if fb_tool_name in ("observe", "model", "body_think"):
                         kwargs["data"] = data
                     tools[fb_tool_name].run(state, **kwargs)
                     update_synapses(state, fb_tool_name, success=True)

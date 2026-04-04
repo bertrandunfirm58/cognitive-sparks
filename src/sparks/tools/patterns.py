@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 
 from pydantic import BaseModel
 
 from sparks.context import tool_context
 from sparks.llm import llm_structured
-from sparks.state import CognitiveState, Contradiction, Pattern
+from sparks.state import CognitiveState, Contradiction, Pattern, Phase
 from sparks.tools.base import BaseTool
 
 
@@ -20,8 +21,11 @@ class RecognizePatternsTool(BaseTool):
     name = "recognize_patterns"
 
     def should_run(self, state: CognitiveState) -> bool:
-        """Run if observations exist but no patterns yet."""
-        return len(state.observations) > 3 and len(state.patterns) == 0
+        """Run if observations exist and patterns need updating."""
+        if len(state.observations) <= 3:
+            return False
+        # Phase 1: run if no patterns yet. Phase 2+: always re-run on new observations.
+        return len(state.patterns) == 0 or state.phase != Phase.SEQUENTIAL
 
     def run(self, state: CognitiveState, **kwargs):
         if not state.observations:
@@ -68,7 +72,7 @@ Include them as type "interference" and note both sides in the description."""
             schema=PatternBatch,
             tool="recognize_patterns",
             tracker=self.tracker,
-            max_tokens=4096,
+            max_tokens=8192,
         )
 
         for p_data in result.patterns:
@@ -80,12 +84,11 @@ Include them as type "interference" and note both sides in the description."""
             )
             state.patterns.append(pat)
             # Detect contradictions from interference patterns
-            if pat.type == "interference" and " vs " in pat.description.lower():
-                parts = pat.description.split(" vs ", 1) if " vs " in pat.description else [pat.description, ""]
-                if len(parts) == 2:
-                    import uuid as _uuid
+            if pat.type == "interference":
+                parts = re.split(r'\s+(?:vs\.?|versus|VS)\s+', pat.description, maxsplit=1)
+                if len(parts) == 2 and parts[0].strip() and parts[1].strip():
                     state.contradictions.append(Contradiction(
-                        id=f"con_{_uuid.uuid4().hex[:8]}",
+                        id=f"con_{uuid.uuid4().hex[:8]}",
                         insight_a=parts[0].strip(),
                         insight_b=parts[1].strip(),
                     ))
