@@ -206,6 +206,119 @@ def optimize(
 
 
 @app.command()
+def wiki_ingest(
+    data: str = typer.Option(..., "--data", "-d", help="Data path to ingest"),
+    goal: str = typer.Option("Extract and organize knowledge", "--goal", "-g", help="Analysis goal"),
+    wiki: str = typer.Option("", "--wiki", "-w", help="Wiki path (default: ~/.sparks/wiki/default)"),
+    depth: str = typer.Option("quick", "--depth", help="Analysis depth"),
+    raw: bool = typer.Option(False, "--raw", help="Ingest as raw text (no Sparks analysis)"),
+):
+    """Ingest data into the wiki knowledge base."""
+    from sparks.wiki import Wiki
+
+    wiki_path = wiki or str(Path.home() / ".sparks" / "wiki" / "default")
+    w = Wiki(wiki_path)
+
+    data_path = Path(data)
+    if not data_path.exists():
+        console.print(f"[red]Data path not found: {data}[/]")
+        raise typer.Exit(1)
+
+    console.print(f"\n[bold cyan]⚡ Wiki Ingest[/]")
+    console.print(f"Wiki: {wiki_path}")
+    console.print(f"Data: {data}")
+
+    if raw:
+        text = data_path.read_text() if data_path.is_file() else "\n".join(
+            f.read_text() for f in sorted(data_path.glob("*")) if f.is_file()
+        )
+        result = w.ingest_text(text, source=str(data_path), goal=goal)
+    else:
+        result = w.ingest(data_path=str(data_path), goal=goal, depth=depth)
+
+    console.print(f"\n[green]✓ Updated: {result.get('updated', 0)} pages[/]")
+    console.print(f"[green]✓ Created: {result.get('created', 0)} pages[/]")
+    stats = w.stats()
+    console.print(f"[dim]Total: {stats['pages']} pages, {stats['total_chars']:,} chars[/]")
+
+
+@app.command()
+def wiki_query(
+    question: str = typer.Option(..., "--question", "-q", help="Question to ask the wiki"),
+    wiki: str = typer.Option("", "--wiki", "-w", help="Wiki path"),
+    save: bool = typer.Option(False, "--save", help="Save answer as wiki page"),
+):
+    """Query the wiki knowledge base."""
+    from sparks.wiki import Wiki
+
+    wiki_path = wiki or str(Path.home() / ".sparks" / "wiki" / "default")
+    w = Wiki(wiki_path)
+
+    console.print(f"\n[bold cyan]⚡ Wiki Query[/]")
+    result = w.query(question, file_result=save)
+
+    console.print(f"\n{result.answer}")
+    if result.sources:
+        console.print(f"\n[dim]Sources: {', '.join(result.sources)}[/]")
+    if result.filed_as:
+        console.print(f"[green]Filed as: {result.filed_as}[/]")
+
+
+@app.command()
+def wiki_lint(
+    wiki: str = typer.Option("", "--wiki", "-w", help="Wiki path"),
+):
+    """Health check the wiki knowledge base."""
+    from sparks.wiki import Wiki
+
+    wiki_path = wiki or str(Path.home() / ".sparks" / "wiki" / "default")
+    w = Wiki(wiki_path)
+
+    console.print(f"\n[bold cyan]⚡ Wiki Lint[/]")
+    result = w.lint()
+
+    if result.contradictions:
+        console.print(f"\n[red]Contradictions ({len(result.contradictions)}):[/]")
+        for c in result.contradictions:
+            console.print(f"  {c.get('page_a', '?')} vs {c.get('page_b', '?')}: {c.get('issue', '?')}")
+    if result.orphan_pages:
+        console.print(f"\n[yellow]Orphan pages: {', '.join(result.orphan_pages)}[/]")
+    if result.stale_pages:
+        console.print(f"\n[yellow]Stale pages: {', '.join(result.stale_pages)}[/]")
+    if result.missing_links:
+        console.print(f"\n[yellow]Missing links:[/]")
+        for m in result.missing_links:
+            console.print(f"  {m['from_page']} → [[{m['broken_link']}]]")
+
+    for s in result.suggestions:
+        console.print(f"\n[dim]💡 {s}[/]")
+
+
+@app.command()
+def wiki_stats(
+    wiki: str = typer.Option("", "--wiki", "-w", help="Wiki path"),
+):
+    """Show wiki statistics."""
+    from sparks.wiki import Wiki
+
+    wiki_path = wiki or str(Path.home() / ".sparks" / "wiki" / "default")
+    w = Wiki(wiki_path)
+    stats = w.stats()
+
+    console.print(f"\n[bold cyan]⚡ Wiki Stats[/]")
+    console.print(f"Path: {stats['wiki_path']}")
+    console.print(f"Pages: {stats['pages']}")
+    console.print(f"Characters: {stats['total_chars']:,}")
+    console.print(f"Categories: {stats['categories']}")
+
+    pages = w.list_pages()
+    if pages:
+        console.print(f"\nPages:")
+        for p in pages:
+            console.print(f"  - {p}")
+
+
+@app.command()
 def meta(
     data: str = typer.Option(..., "--data", "-d", help="Benchmark data path"),
     iterations: int = typer.Option(3, "--iterations", "-n", help="Max improvement iterations"),

@@ -173,6 +173,19 @@ class Sparks:
             max_risk=max_risk,
         )
 
+    def wiki(self, wiki_path: str | Path = "~/.sparks/wiki/default") -> "WikiInterface":
+        """Get a wiki interface for persistent knowledge accumulation.
+
+        Usage:
+            s = Sparks("Find patterns")
+            w = s.wiki("~/.sparks/wiki/my_project")
+            w.ingest("./data/")
+            w.ingest("./more_data/")  # Accumulates!
+            answer = w.query("What are the main patterns?")
+        """
+        from sparks.wiki import Wiki
+        return WikiInterface(Wiki(str(Path(wiki_path).expanduser())), self)
+
     def reset_circuit(self):
         """Reset circuit weights to initial values."""
         from sparks.circuit import NeuralCircuit
@@ -196,3 +209,37 @@ class Sparks:
 
     def __repr__(self):
         return f"Sparks(goal={self.goal!r}, depth={self.depth!r})"
+
+
+class WikiInterface:
+    """Convenience wrapper that binds a Wiki to a Sparks instance."""
+
+    def __init__(self, wiki, sparks: Sparks):
+        self._wiki = wiki
+        self._sparks = sparks
+
+    def ingest(self, data_path: str | Path, goal: str | None = None) -> dict:
+        """Ingest data into wiki using Sparks analysis."""
+        return self._wiki.ingest(
+            data_path=str(Path(data_path).resolve()),
+            goal=goal or self._sparks.goal,
+            depth=self._sparks.depth,
+        )
+
+    def ingest_text(self, text: str, source: str = "external") -> dict:
+        """Ingest raw text directly."""
+        return self._wiki.ingest_text(text, source=source, goal=self._sparks.goal)
+
+    def query(self, question: str, save: bool = False):
+        """Query the wiki."""
+        return self._wiki.query(question, file_result=save)
+
+    def lint(self):
+        """Health check."""
+        return self._wiki.lint()
+
+    def stats(self) -> dict:
+        return self._wiki.stats()
+
+    def pages(self) -> list[str]:
+        return self._wiki.list_pages()
